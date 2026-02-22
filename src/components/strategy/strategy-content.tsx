@@ -80,17 +80,8 @@ const DEFAULT_RISK: RiskConfig = {
   stop_loss_pct: 3,
   take_profit_pct: 5,
   trailing_stop: { enabled: false, pct: 2 },
-  max_total_investment: 1_000_000,
   max_daily_loss: 100_000,
   max_positions: 5,
-  per_trade_amount: 100_000,
-}
-
-// ─────────────────────────────────────────────
-// KRW 포맷 헬퍼
-// ─────────────────────────────────────────────
-function formatKRW(value: number): string {
-  return new Intl.NumberFormat('ko-KR').format(value)
 }
 
 // ─────────────────────────────────────────────
@@ -446,21 +437,6 @@ export function StrategyContent() {
           {/* 투자 한도 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="max-invest">최대 총 투자금액 (KRW)</Label>
-              <Input
-                id="max-invest"
-                type="number"
-                {...riskForm.register('max_total_investment', {
-                  valueAsNumber: true,
-                })}
-              />
-              {riskForm.formState.errors.max_total_investment && (
-                <p className="text-destructive text-xs">
-                  {riskForm.formState.errors.max_total_investment.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="max-daily-loss">일일 최대 손실 한도 (KRW)</Label>
               <Input
                 id="max-daily-loss"
@@ -483,21 +459,6 @@ export function StrategyContent() {
               {riskForm.formState.errors.max_positions && (
                 <p className="text-destructive text-xs">
                   {riskForm.formState.errors.max_positions.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="per-trade">건당 투자금액 (KRW)</Label>
-              <Input
-                id="per-trade"
-                type="number"
-                {...riskForm.register('per_trade_amount', {
-                  valueAsNumber: true,
-                })}
-              />
-              {riskForm.formState.errors.per_trade_amount && (
-                <p className="text-destructive text-xs">
-                  {riskForm.formState.errors.per_trade_amount.message}
                 </p>
               )}
             </div>

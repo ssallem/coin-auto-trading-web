@@ -51,7 +51,16 @@ const TradingFormSchema = z.object({
   /** 콤마 구분 마켓 문자열 (폼 입력용) */
   markets_str: z
     .string()
-    .min(1, '최소 1개 이상의 마켓을 입력해야 합니다'),
+    .min(1, '최소 1개 이상의 마켓을 입력해야 합니다')
+    .refine(
+      (val) =>
+        val
+          .split(',')
+          .map((m) => m.trim())
+          .filter(Boolean)
+          .every((m) => /^KRW-/.test(m)),
+      '모든 마켓 코드는 KRW- 접두사가 필요합니다 (예: KRW-BTC)',
+    ),
 
   /** 폴링 간격 (초, 10~3600) */
   poll_interval: z
@@ -60,8 +69,11 @@ const TradingFormSchema = z.object({
     .min(10, '폴링 간격은 최소 10초 이상이어야 합니다')
     .max(3600, '폴링 간격은 최대 3600초 이하여야 합니다'),
 
-  /** 분석 타임프레임 */
-  timeframe: z.enum(['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'], {
+  /** 분석 타임프레임 (Python 업비트 API 포맷) */
+  timeframe: z.enum([
+    'minute1', 'minute3', 'minute5', 'minute10', 'minute15',
+    'minute30', 'minute60', 'minute240', 'day', 'week', 'month',
+  ], {
     message: '유효한 타임프레임을 선택해주세요',
   }),
 
@@ -80,14 +92,17 @@ type TradingFormValues = z.infer<typeof TradingFormSchema>
 // ─────────────────────────────────────────────
 
 const TIMEFRAME_OPTIONS = [
-  { value: '1m', label: '1분' },
-  { value: '3m', label: '3분' },
-  { value: '5m', label: '5분' },
-  { value: '15m', label: '15분' },
-  { value: '30m', label: '30분' },
-  { value: '1h', label: '1시간' },
-  { value: '4h', label: '4시간' },
-  { value: '1d', label: '1일' },
+  { value: 'minute1', label: '1분' },
+  { value: 'minute3', label: '3분' },
+  { value: 'minute5', label: '5분' },
+  { value: 'minute10', label: '10분' },
+  { value: 'minute15', label: '15분' },
+  { value: 'minute30', label: '30분' },
+  { value: 'minute60', label: '1시간' },
+  { value: 'minute240', label: '4시간' },
+  { value: 'day', label: '일봉' },
+  { value: 'week', label: '주봉' },
+  { value: 'month', label: '월봉' },
 ] as const
 
 // ─────────────────────────────────────────────
@@ -107,7 +122,7 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
     defaultValues: {
       markets_str: '',
       poll_interval: 60,
-      timeframe: '5m',
+      timeframe: 'minute60',
       candle_count: 200,
     },
   })

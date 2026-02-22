@@ -36,8 +36,11 @@ export const TradingConfigSchema = z.object({
     .min(10, '폴링 간격은 최소 10초 이상이어야 합니다')
     .max(3600, '폴링 간격은 최대 3600초 이하여야 합니다'),
 
-  /** 분석 타임프레임 */
-  timeframe: z.enum(['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'], {
+  /** 분석 타임프레임 (Python 업비트 API 포맷) */
+  timeframe: z.enum([
+    'minute1', 'minute3', 'minute5', 'minute10', 'minute15',
+    'minute30', 'minute60', 'minute240', 'day', 'week', 'month',
+  ], {
     message: '유효한 타임프레임을 선택해주세요',
   }),
 
@@ -84,11 +87,21 @@ export const BacktestConfigSchema = z.object({
     .min(1, '백테스트 기간은 최소 1일 이상이어야 합니다')
     .max(365, '백테스트 기간은 최대 365일 이하여야 합니다'),
 
-  /** 시작일 (YYYY-MM-DD 형식) */
-  start_date: z.string().min(1, '시작일을 입력해주세요'),
+  /** 시작일 (YYYY-MM-DD 형식, 빈 문자열 허용) */
+  start_date: z
+    .string()
+    .refine(
+      (val) => val === '' || /^\d{4}-\d{2}-\d{2}$/.test(val),
+      '날짜 형식은 YYYY-MM-DD 이어야 합니다',
+    ),
 
-  /** 종료일 (YYYY-MM-DD 형식) */
-  end_date: z.string().min(1, '종료일을 입력해주세요'),
+  /** 종료일 (YYYY-MM-DD 형식, 빈 문자열 허용) */
+  end_date: z
+    .string()
+    .refine(
+      (val) => val === '' || /^\d{4}-\d{2}-\d{2}$/.test(val),
+      '날짜 형식은 YYYY-MM-DD 이어야 합니다',
+    ),
 
   /** 초기 자본금 (최소 5,000 KRW) */
   initial_capital: z

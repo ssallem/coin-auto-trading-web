@@ -86,14 +86,10 @@ export interface RiskConfig {
     /** 트레일링 스탑 비율 (%) */
     pct: number
   }
-  /** 최대 총 투자금액 (KRW) */
-  max_total_investment: number
   /** 일일 최대 손실 한도 (KRW) */
   max_daily_loss: number
   /** 최대 동시 보유 포지션 수 */
   max_positions: number
-  /** 건당 투자금액 (KRW) */
-  per_trade_amount: number
 }
 
 // ─────────────────────────────────────────────

@@ -6,10 +6,8 @@
  * - stop_loss_pct: 손절 비율 (%)
  * - take_profit_pct: 익절 비율 (%)
  * - trailing_stop: 트레일링 스탑 (enabled, pct)
- * - max_total_investment: 최대 총 투자금액
  * - max_daily_loss: 일일 최대 손실 한도
  * - max_positions: 최대 동시 포지션 수
- * - per_trade_amount: 건당 투자금액
  */
 
 import { useEffect } from 'react'
@@ -52,10 +50,8 @@ const DEFAULT_VALUES: RiskConfigInput = {
   stop_loss_pct: 3,
   take_profit_pct: 5,
   trailing_stop: { enabled: false, pct: 2 },
-  max_total_investment: 1_000_000,
   max_daily_loss: 100_000,
   max_positions: 5,
-  per_trade_amount: 100_000,
 }
 
 // ─────────────────────────────────────────────
@@ -186,19 +182,6 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
           {/* 투자 한도 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="risk-max-invest">최대 총 투자금액 (KRW)</Label>
-              <Input
-                id="risk-max-invest"
-                type="number"
-                {...register('max_total_investment', { valueAsNumber: true })}
-              />
-              {errors.max_total_investment && (
-                <p className="text-destructive text-xs">
-                  {errors.max_total_investment.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="risk-max-daily-loss">일일 최대 손실 한도 (KRW)</Label>
               <Input
                 id="risk-max-daily-loss"
@@ -221,19 +204,6 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
               {errors.max_positions && (
                 <p className="text-destructive text-xs">
                   {errors.max_positions.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="risk-per-trade">건당 투자금액 (KRW)</Label>
-              <Input
-                id="risk-per-trade"
-                type="number"
-                {...register('per_trade_amount', { valueAsNumber: true })}
-              />
-              {errors.per_trade_amount && (
-                <p className="text-destructive text-xs">
-                  {errors.per_trade_amount.message}
                 </p>
               )}
             </div>

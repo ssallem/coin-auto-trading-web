@@ -7,23 +7,28 @@
  * 테이블: bot_config (id=1 고정 row)
  * 컬럼: trading, investment, risk, strategy, backtest, logging, notification (JSONB), updated_at
  */
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 // ─────────────────────────────────────────────
 // Supabase 클라이언트 (싱글턴)
 // ─────────────────────────────────────────────
 
-function getSupabaseClient() {
+let _client: SupabaseClient | null = null
+
+function getSupabaseClient(): SupabaseClient {
+  if (_client) return _client
+
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
     throw new Error(
-      'SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않았습니다.'
+      'SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 환경변수가 필요합니다'
     )
   }
 
-  return createClient(url, key)
+  _client = createClient(url, key, { auth: { persistSession: false } })
+  return _client
 }
 
 // ─────────────────────────────────────────────

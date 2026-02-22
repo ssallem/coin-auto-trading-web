@@ -135,11 +135,6 @@ export const RiskConfigSchema = z.object({
   /** 트레일링 스탑 설정 */
   trailing_stop: TrailingStopSchema,
 
-  /** 최대 총 투자금액 (최소 5,000 KRW) */
-  max_total_investment: z
-    .number()
-    .min(5000, '최대 총 투자금액은 5,000 KRW 이상이어야 합니다'),
-
   /** 일일 최대 손실 한도 (0 이상, KRW) */
   max_daily_loss: z
     .number()
@@ -151,11 +146,6 @@ export const RiskConfigSchema = z.object({
     .int('최대 포지션 수는 정수여야 합니다')
     .min(1, '최대 포지션 수는 1 이상이어야 합니다')
     .max(50, '최대 포지션 수는 50 이하여야 합니다'),
-
-  /** 건당 투자금액 (최소 5,000 KRW) */
-  per_trade_amount: z
-    .number()
-    .min(5000, '건당 투자금액은 5,000 KRW 이상이어야 합니다'),
 })
 
 // ─────────────────────────────────────────────
