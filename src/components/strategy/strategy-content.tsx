@@ -32,7 +32,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { CardSkeleton } from '@/components/common/loading-skeleton'
@@ -73,7 +72,7 @@ async function saveStrategyConfig(payload: {
 const DEFAULT_STRATEGY: StrategyConfigInput = {
   active: 'rsi',
   rsi: { period: 14, oversold: 30, overbought: 70 },
-  ma_cross: { short_period: 5, long_period: 20, use_ema: false },
+  ma_cross: { short_period: 5, long_period: 20, ma_type: 'SMA' as const },
   bollinger: { period: 20, std_dev: 2.0 },
 }
 
@@ -289,19 +288,28 @@ export function StrategyContent() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-end space-x-2 pb-2">
-                  <Checkbox
-                    id="use-ema"
-                    checked={strategyForm.watch('ma_cross.use_ema')}
-                    onCheckedChange={(checked) =>
-                      strategyForm.setValue('ma_cross.use_ema', checked === true, {
-                        shouldValidate: true,
-                      })
+                <div className="space-y-2">
+                  <Label htmlFor="ma-type">이동평균 유형</Label>
+                  <select
+                    id="ma-type"
+                    className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
+                    value={strategyForm.watch('ma_cross.ma_type')}
+                    onChange={(e) =>
+                      strategyForm.setValue(
+                        'ma_cross.ma_type',
+                        e.target.value as 'SMA' | 'EMA',
+                        { shouldValidate: true }
+                      )
                     }
-                  />
-                  <Label htmlFor="use-ema" className="cursor-pointer">
-                    EMA(지수이동평균) 사용
-                  </Label>
+                  >
+                    <option value="SMA">SMA (단순이동평균)</option>
+                    <option value="EMA">EMA (지수이동평균)</option>
+                  </select>
+                  {strategyForm.formState.errors.ma_cross?.ma_type && (
+                    <p className="text-destructive text-xs">
+                      {strategyForm.formState.errors.ma_cross.ma_type.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </TabsContent>

@@ -55,8 +55,10 @@ const MaCrossConfigSchema = z
       .min(2, '장기 이평 기간은 최소 2 이상이어야 합니다')
       .max(500, '장기 이평 기간은 최대 500 이하여야 합니다'),
 
-    /** 지수이동평균(EMA) 사용 여부 */
-    use_ema: z.boolean(),
+    /** 이동평균 유형 (SMA 또는 EMA) */
+    ma_type: z.enum(['SMA', 'EMA'], {
+      message: '이동평균 유형은 SMA 또는 EMA 중 하나여야 합니다',
+    }),
   })
   .refine((data) => data.short_period < data.long_period, {
     message: '단기 이평 기간은 장기 이평 기간보다 작아야 합니다',

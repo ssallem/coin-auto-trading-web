@@ -127,6 +127,12 @@
   - shadcn checkbox, switch 추가 설치
   - 빌드 성공
 
+## 배포 후 수정
+- src/app/page.tsx가 기본 Next.js 템플릿 그대로였음 → /portfolio 리다이렉트로 교체
+- src/app/(dashboard)/page.tsx 중복 삭제 (루트 page.tsx와 경로 충돌)
+- public/ 기본 SVG 5개 삭제 (next.svg, vercel.svg 등)
+- GitHub push + Vercel 재배포 완료
+
 ## 발견된 이슈
 - Phase 5 검토 결과: CRITICAL 6건, WARNING 10건, SUGGESTION 7건
 - C-01: strategy/config - 하드코딩 절대경로 D:/ → Vercel 배포 불가
@@ -156,9 +162,65 @@
   - UPBIT_ACCESS_KEY
   - UPBIT_SECRET_KEY
 
+## 미션 2: 웹 중심 아키텍처 전환
+- 원본 요청: "config.yaml 설정 확인해줘. config도 web으로 설정 가능하게 해줘. 기본적으로 local 방식이 아니라 모든걸 web 방식으로 변경해줘. 필요하면 supabase를 사용해도 돼."
+- 시작 시각: 2026-02-22
+- 핵심 목표:
+  1. Python 봇의 config.yaml → Supabase DB로 이전
+  2. 웹 대시보드에서 모든 설정 관리 가능하게
+  3. 로컬 방식 → 웹 방식으로 전환
+  4. 전략 설정(.strategy-config.json) → Supabase로 전환
+
+## 미션 2 탐색 결과
+- Python config.yaml 7개 섹션: trading, investment, risk, strategy, backtest, logging, notification
+- Python settings.py: 싱글턴 패턴, dataclass 매핑, validate() 검증 로직
+- 웹 전략 설정: .strategy-config.json 파일 기반 (strategy + risk 섹션만)
+- 변경 필요 핵심 파일: src/app/api/strategy/config/route.ts (readConfig/writeConfig만 교체)
+- /settings 페이지: 미구현 (.gitkeep만 존재)
+- 단일 사용자 구조 (user_id 없음)
+- Python config에는 있지만 웹에는 없는 섹션: trading, investment, backtest, logging, notification
+- Supabase 전환 시 추가 환경변수: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+## 미션 2 설계
+- 접근법: Supabase 단일 테이블 bot_config, id=1 고정 row, 7개 섹션 JSONB 컬럼
+- 웹: @supabase/supabase-js (service_role key), 파일 I/O → Supabase CRUD로 교체
+- Python: requests HTTP → Supabase REST API, yaml은 fallback으로 유지
+- /settings 페이지: 7탭 (거래/투자/리스크/전략/백테스팅/로깅/알림)
+- 변경 파일: 웹 19개 (신규 16 + 수정 3), Python 3개 (신규 1 + 수정 2)
+- 구현 라운드: R1(인프라) → R2(핵심 라이브러리) → R3(스키마/타입) → R4(API 마이그레이션) → R5(신규 API/훅) → R6(UI 4팀 병렬) → R7(통합)
+- 환경변수 추가: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (Vercel + Python .env)
+
+## 미션 2 완료 작업
+- R1: Vercel 환경변수 2개 설정, npm install @supabase/supabase-js, Python .env/.env.example 업데이트, requirements.txt 업데이트
+- R1: Supabase 테이블 생성 → 사용자 수동 실행 필요
+- R2-5 웹 (빌드 성공):
+  - src/lib/supabase.ts (신규) - Supabase 클라이언트 + getBotConfig/updateBotConfig
+  - src/lib/validations/config.schema.ts (신규) - 7개 섹션 Zod 스키마
+  - src/lib/validations/strategy.schema.ts (수정) - use_ema→ma_type 동기화
+  - src/types/trading.ts (수정) - 5개 Config 타입 추가
+  - src/lib/query-keys.ts (수정) - botConfig 키 추가
+  - src/app/api/strategy/config/route.ts (수정) - 파일I/O→Supabase
+  - src/app/api/settings/config/route.ts (신규) - 7섹션 GET/PUT
+  - src/hooks/use-bot-config.ts (신규) - useBotConfig/useUpdateBotConfig
+  - src/components/strategy/strategy-content.tsx (수정) - use_ema→ma_type UI 변경
+- R2-5 Python:
+  - config/supabase_loader.py (신규) - Supabase REST 조회
+  - config/settings.py (수정) - Supabase 우선 로드, yaml fallback
+- R6 설정 UI (빌드 성공):
+  - src/app/(dashboard)/settings/page.tsx (신규)
+  - src/components/settings/settings-content.tsx (신규) - 7탭 컨테이너
+  - src/components/settings/sections/trading-section.tsx (신규)
+  - src/components/settings/sections/investment-section.tsx (신규)
+  - src/components/settings/sections/risk-section.tsx (신규)
+  - src/components/settings/sections/strategy-section.tsx (신규)
+  - src/components/settings/sections/backtest-section.tsx (신규)
+  - src/components/settings/sections/logging-section.tsx (신규)
+  - src/components/settings/sections/notification-section.tsx (신규)
+- R7 빌드 검증: 2개 에러 수정 (LoggingConfig 타입, Zod v4 API), 3회차 빌드 성공
+
 ## 남은 작업
 - ~~Vercel 환경변수 4개 설정~~ (완료)
 - 설정 페이지(/settings) 구현 (API 키 입력 UI 등)
-- Vercel KV로 전략 설정 저장 전환 (현재 파일 기반)
+- ~~Vercel KV로 전략 설정 저장 전환~~ → Supabase로 전환
 - E2E 테스트 (로그인→포트폴리오→차트→주문→설정)
 - 다크/라이트 모드 토글 UI

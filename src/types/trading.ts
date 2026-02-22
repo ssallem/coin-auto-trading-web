@@ -57,8 +57,8 @@ export interface StrategyConfig {
     short_period: number
     /** 장기 이동평균 기간 */
     long_period: number
-    /** 지수이동평균(EMA) 사용 여부 */
-    use_ema: boolean
+    /** 이동평균 유형 (SMA 또는 EMA) */
+    ma_type: 'SMA' | 'EMA'
   }
   /** 볼린저밴드 전략 파라미터 */
   bollinger: {
@@ -148,4 +148,65 @@ export interface NavItem {
   icon: string
   /** 배지 텍스트 (선택) */
   badge?: string
+}
+
+// ─────────────────────────────────────────────
+// 봇 전체 설정 (Supabase bot_config 테이블)
+// ─────────────────────────────────────────────
+
+/** 거래 기본 설정 (마켓, 폴링, 타임프레임) */
+export interface TradingSettings {
+  markets: string[]
+  poll_interval: number
+  timeframe: string
+  candle_count: number
+}
+
+/** 투자금액 설정 */
+export interface InvestmentConfig {
+  max_total_investment: number
+  per_trade_amount: number
+  min_order_amount: number
+}
+
+/** 백테스트 설정 */
+export interface BacktestConfig {
+  period_days: number
+  start_date: string
+  end_date: string
+  initial_capital: number
+  commission_rate: number
+}
+
+/** 로그 레벨 */
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL'
+
+/** 로깅 설정 */
+export interface LoggingConfig {
+  level: LogLevel
+  file: string
+  max_size_mb: number
+  backup_count: number
+}
+
+/** 알림 채널 */
+export type NotificationChannel = 'telegram' | 'slack'
+
+/** 알림 설정 */
+export interface NotificationConfig {
+  enabled: boolean
+  channel: NotificationChannel
+  events: string[]
+}
+
+/** 봇 전체 설정 (7개 섹션 통합) */
+export interface BotConfig {
+  trading: TradingSettings
+  investment: InvestmentConfig
+  risk: RiskConfig
+  strategy: StrategyConfig
+  backtest: BacktestConfig
+  logging: LoggingConfig
+  notification: NotificationConfig
+  updated_at?: string
 }

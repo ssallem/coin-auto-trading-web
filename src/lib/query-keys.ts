@@ -56,6 +56,15 @@ export const queryKeys = {
   /** 전략 설정 조회 키 */
   strategyConfig: () =>
     ['strategy', 'config'] as const,
+
+  // ─────────────────────────────────────────
+  // 봇 전체 설정 (Supabase bot_config)
+  // ─────────────────────────────────────────
+
+  /** 봇 전체 설정 키 */
+  botConfig: {
+    all: ['settings', 'bot-config'] as const,
+  },
 }
 
 /**
@@ -102,5 +111,9 @@ export const QUERY_CONFIG = {
   strategyConfig: {
     staleTime: 5_000,
     refetchInterval: 10_000,
+  },
+  /** 봇 전체 설정: 30초 신선 */
+  botConfig: {
+    staleTime: 30_000,
   },
 } as const

@@ -1,13 +1,12 @@
 /**
- * 전략 설정 관리 API Route (Node.js Runtime)
+ * 봇 전체 설정 관리 API Route (Node.js Runtime)
  *
- * GET  /api/strategy/config
- * → Supabase bot_config에서 strategy + risk 섹션 반환
+ * GET  /api/settings/config
+ * → Supabase bot_config에서 7개 섹션 전체 + updated_at 반환
  *
- * POST /api/strategy/config
- * → strategy + risk 설정을 Supabase에 저장
- * → Body: { strategy: StrategyConfig, risk: RiskConfig }
- * → Zod 스키마로 검증
+ * PUT  /api/settings/config
+ * → 부분 업데이트 (patch) - 전달된 섹션만 업데이트
+ * → Body: BotConfigSchema.partial() 로 검증
  *
  * 세션 인증 필수
  * 저장소: Supabase bot_config 테이블 (id=1)
@@ -16,17 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifySession } from '@/lib/session'
 import { getBotConfig, updateBotConfig } from '@/lib/supabase'
-import {
-  StrategyConfigSchema,
-  RiskConfigSchema,
-} from '@/lib/validations/strategy.schema'
-import { z } from 'zod'
-
-/** strategy + risk 통합 스키마 */
-const CombinedConfigSchema = z.object({
-  strategy: StrategyConfigSchema,
-  risk: RiskConfigSchema,
-})
+import { BotConfigSchema } from '@/lib/validations/config.schema'
 
 /**
  * 세션 검증 헬퍼 함수
@@ -54,7 +43,7 @@ async function requireAuth(): Promise<NextResponse | null> {
   return null
 }
 
-/** 전략+리스크 통합 설정 조회 */
+/** 봇 전체 설정 조회 */
 export async function GET() {
   try {
     // 세션 검증
@@ -62,10 +51,7 @@ export async function GET() {
     if (authError) return authError
 
     const config = await getBotConfig()
-    return NextResponse.json({
-      strategy: config.strategy,
-      risk: config.risk,
-    })
+    return NextResponse.json(config)
   } catch (error) {
     const message =
       error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다'
@@ -73,8 +59,8 @@ export async function GET() {
   }
 }
 
-/** 전략+리스크 통합 설정 저장 */
-export async function POST(request: NextRequest) {
+/** 봇 전체 설정 부분 업데이트 */
+export async function PUT(request: NextRequest) {
   try {
     // 세션 검증
     const authError = await requireAuth()
@@ -91,8 +77,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Zod 스키마 검증 (통합 구조: { strategy, risk })
-    const result = CombinedConfigSchema.safeParse(body)
+    // Zod 스키마 검증 (부분 업데이트: partial)
+    const PartialBotConfigSchema = BotConfigSchema.partial()
+    const result = PartialBotConfigSchema.safeParse(body)
     if (!result.success) {
       const errors = result.error.issues.map((e) => ({
         field: e.path.join('.'),
@@ -104,15 +91,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Supabase에 저장
-    await updateBotConfig({
-      strategy: result.data.strategy as Record<string, unknown>,
-      risk: result.data.risk as Record<string, unknown>,
-    })
+    // 빈 객체 체크
+    const data = result.data
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json(
+        { error: '업데이트할 설정이 없습니다' },
+        { status: 400 }
+      )
+    }
+
+    // Supabase에 부분 업데이트
+    const updated = await updateBotConfig(
+      data as Record<string, unknown>
+    )
 
     return NextResponse.json({
       message: '설정이 저장되었습니다',
-      config: result.data,
+      config: updated,
     })
   } catch (error) {
     const message =
