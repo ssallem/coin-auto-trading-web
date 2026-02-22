@@ -142,10 +142,22 @@
 - W-07: strategy-content - risk 설정 미전송
 - W-09: session.ts - secure:true 로컬개발 불가
 
+## R5 완료: GitHub + Vercel 배포
+- GitHub push 완료:
+  - Python 봇: https://github.com/ssallem/coin-auto-trading (28 files, 5,791 lines)
+  - 웹 대시보드: https://github.com/ssallem/coin-auto-trading-web (117 files, 21,280 lines)
+- Vercel 배포 완료:
+  - 프로덕션 URL: https://coin-auto-trading-web.vercel.app
+  - 대시보드: https://vercel.com/ssallems-projects/coin-auto-trading-web
+  - 빌드: Next.js 16.1.6 (Turbopack), 46초, 정적 7페이지 + 동적 API 10개
+- 환경변수 4개 설정 완료 + 재배포 완료 (2026-02-22)
+  - DASHBOARD_PIN_HASH (PIN: 2000)
+  - SESSION_SECRET (자동생성 랜덤 키)
+  - UPBIT_ACCESS_KEY
+  - UPBIT_SECRET_KEY
+
 ## 남은 작업
-- R5: GitHub 저장소 생성 및 push (ssallem/coin-auto-trading-web)
-- R5: Vercel 프로젝트 연결 및 배포
-- R5: Python 봇도 GitHub push (ssallem/coin-auto-trading)
+- ~~Vercel 환경변수 4개 설정~~ (완료)
 - 설정 페이지(/settings) 구현 (API 키 입력 UI 등)
 - Vercel KV로 전략 설정 저장 전환 (현재 파일 기반)
 - E2E 테스트 (로그인→포트폴리오→차트→주문→설정)
