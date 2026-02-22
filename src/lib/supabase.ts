@@ -6,8 +6,16 @@
  *
  * 테이블: bot_config (id=1 고정 row)
  * 컬럼: trading, investment, risk, strategy, backtest, logging, notification (JSONB), updated_at
+ *
+ * 테이블: account_snapshots, order_history, pending_orders
+ * → Python 봇이 Upbit에서 동기화한 데이터를 읽기 위한 함수 제공
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type {
+  AccountSnapshotRow,
+  OrderHistoryRow,
+  PendingOrderRow,
+} from '@/types/supabase'
 
 // ─────────────────────────────────────────────
 // Supabase 클라이언트 (싱글턴)
@@ -99,4 +107,187 @@ export async function updateBotConfig(
   }
 
   return data as BotConfigRow
+}
+
+// ─────────────────────────────────────────────
+// account_snapshots 조회
+// ─────────────────────────────────────────────
+
+/**
+ * 최신 계좌 스냅샷 1건을 조회합니다.
+ * 봇이 아직 동기화하지 않았으면 null을 반환합니다.
+ *
+ * @param botId - 봇 식별자 (기본값: 'main')
+ * @returns 최신 스냅샷 또는 null
+ */
+export async function getLatestAccountSnapshot(
+  botId: string = 'main'
+): Promise<AccountSnapshotRow | null> {
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('account_snapshots')
+    .select('*')
+    .eq('bot_id', botId)
+    .order('snapshot_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error('account_snapshots 조회 실패:', error.message)
+    throw new Error(`계좌 스냅샷을 불러올 수 없습니다: ${error.message}`)
+  }
+
+  return data as AccountSnapshotRow | null
+}
+
+// ─────────────────────────────────────────────
+// order_history 조회
+// ─────────────────────────────────────────────
+
+/** getOrderHistory 함수의 옵션 타입 */
+interface GetOrderHistoryOptions {
+  market?: string
+  side?: string
+  limit?: number
+  botId?: string
+}
+
+/**
+ * 주문 체결 이력을 조회합니다.
+ *
+ * @param options - 필터 옵션 (market, side, limit, botId)
+ * @returns 주문 이력 배열
+ */
+export async function getOrderHistory(
+  options: GetOrderHistoryOptions = {}
+): Promise<OrderHistoryRow[]> {
+  const { market, side, limit = 50, botId = 'main' } = options
+  const supabase = getSupabaseClient()
+
+  let query = supabase
+    .from('order_history')
+    .select('*')
+    .eq('bot_id', botId)
+    .order('traded_at', { ascending: false })
+    .limit(limit)
+
+  if (market) {
+    query = query.eq('market', market)
+  }
+
+  if (side) {
+    query = query.eq('side', side)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('order_history 조회 실패:', error.message)
+    throw new Error(`주문 이력을 불러올 수 없습니다: ${error.message}`)
+  }
+
+  return (data ?? []) as OrderHistoryRow[]
+}
+
+/**
+ * Upbit UUID로 주문 이력 단건을 조회합니다.
+ *
+ * @param upbitUuid - Upbit 주문 UUID
+ * @returns 주문 이력 또는 null
+ */
+export async function getOrderHistoryByUuid(
+  upbitUuid: string
+): Promise<OrderHistoryRow | null> {
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('order_history')
+    .select('*')
+    .eq('upbit_uuid', upbitUuid)
+    .maybeSingle()
+
+  if (error) {
+    console.error('order_history 단건 조회 실패:', error.message)
+    throw new Error(`주문 이력을 불러올 수 없습니다: ${error.message}`)
+  }
+
+  return data as OrderHistoryRow | null
+}
+
+// ─────────────────────────────────────────────
+// pending_orders 생성/취소
+// ─────────────────────────────────────────────
+
+/** createPendingOrder 함수의 입력 타입 */
+interface CreatePendingOrderInput {
+  market: string
+  side: 'bid' | 'ask'
+  ord_type: 'limit' | 'price' | 'market'
+  price?: string
+  volume?: string
+  botId?: string
+}
+
+/**
+ * 대기 주문을 생성합니다.
+ * 웹에서 주문을 요청하면 pending_orders에 INSERT하고,
+ * Python 봇이 이를 폴링하여 Upbit에 실제 주문을 실행합니다.
+ *
+ * @param input - 주문 요청 정보
+ * @returns 생성된 대기 주문 Row
+ */
+export async function createPendingOrder(
+  input: CreatePendingOrderInput
+): Promise<PendingOrderRow> {
+  const { market, side, ord_type, price, volume, botId = 'main' } = input
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('pending_orders')
+    .insert({
+      market,
+      side,
+      ord_type,
+      price: price ?? null,
+      volume: volume ?? null,
+      bot_id: botId,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('pending_orders INSERT 실패:', error.message)
+    throw new Error(`주문 요청을 저장할 수 없습니다: ${error.message}`)
+  }
+
+  return data as PendingOrderRow
+}
+
+/**
+ * 대기 주문을 취소합니다.
+ * 아직 pending 상태인 주문만 취소할 수 있습니다.
+ *
+ * @param requestUuid - 대기 주문의 request_uuid
+ * @returns 취소된 주문 Row 또는 null (이미 처리된 경우)
+ */
+export async function cancelPendingOrder(
+  requestUuid: string
+): Promise<PendingOrderRow | null> {
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('pending_orders')
+    .update({ status: 'cancelled' })
+    .eq('request_uuid', requestUuid)
+    .in('status', ['pending'])
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    console.error('pending_orders 취소 실패:', error.message)
+    throw new Error(`주문 취소에 실패했습니다: ${error.message}`)
+  }
+
+  return data as PendingOrderRow | null
 }

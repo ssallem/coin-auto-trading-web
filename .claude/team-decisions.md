@@ -217,10 +217,80 @@
   - src/components/settings/sections/logging-section.tsx (신규)
   - src/components/settings/sections/notification-section.tsx (신규)
 - R7 빌드 검증: 2개 에러 수정 (LoggingConfig 타입, Zod v4 API), 3회차 빌드 성공
+- 검토 결과: CRITICAL 4건 + WARNING 2건 수정
+  - C-1: Python trailing_stop 중첩→플랫 구조 변환
+  - C-2: timeframe 포맷 Python과 통일 (minute1, minute60 등)
+  - C-3: RiskConfigSchema에서 investment 중복 필드 제거
+  - C-4: Supabase 클라이언트 싱글턴 적용
+  - W-1: BacktestConfig 날짜 YYYY-MM-DD 검증
+  - W-3: markets KRW- 접두사 검증
+- GitHub push + Vercel 재배포 완료
+
+## 미션 3: 자동매매 실행 시도 (2026-02-22)
+- Supabase 설정 로드: 성공 ("Supabase에서 설정을 로드했습니다")
+- 설정 검증: 성공 (markets: KRW-BTC, strategy: rsi, timeframe: minute60)
+- 백테스트: 성공 (+2.98%, 승률 100%, MDD 0.27%, Sharpe 2.41)
+- API 연결: 실패 - [no_authorization_ip] This is not a verified IP
+- 자동매매: 미실행 (IP 미등록)
+- 필요 조치: Upbit Open API에 현재 PC의 공인 IP 등록 필요
+- API 키 갱신 후 재시도: 성공
+  - 새 키: [REDACTED]
+  - check 통과: KRW 잔고 58,836원, 보유 코인 없음
+  - trade 시작: 2026-02-22 22:00:56, RSI 전략, KRW-BTC, 60초 주기
+  - Vercel 재배포 완료
+
+## 미션 4: 웹 대시보드 Supabase 동기화 아키텍처 (2026-02-22)
+- 원본 요청: "web 대시보드에서 잔고 확인이 안되고있어. 실시간 잔고랑 매매 이력, 실제 매매 가능하게 설정을 해줘."
+- 근본 원인: Vercel 서버리스 함수의 동적 IP가 Upbit API 화이트리스트에 미등록 → no_authorization_ip 에러
+- 영향받는 API: /api/accounts, /api/orders, /api/orders/[uuid] (인증 필요 API 전부)
+- 프론트엔드: useAccounts()에서 error 미처리 → 조용히 0.00 표시
+- 선택한 솔루션: Python 봇 → Supabase 동기화 → 웹 대시보드 읽기 (기존 Supabase 인프라 활용)
+- 작업 유형: 아키텍처 변경 + 신규 개발
+- 복잡도: 복잡
+- 팀 구성: 설계자 1명 + 개발자 3~4명 + 검토자 1명
+
+## 미션 4 설계
+- 접근법: Supabase를 단방향 데이터 허브로 사용. Python 봇=Writer, 웹=Reader. 주문만 역방향(웹→Supabase→봇).
+- 웹 API 인터페이스(UpbitBalance[], UpbitOrder[]) 유지 → 프론트엔드 훅 수정 불필요
+- Supabase 테이블 3개: pending_orders(웹주문요청) → order_history(체결이력, FK) → account_snapshots(잔고)
+- 동기화 주기: 잔고 30초, 주문이력 즉시(체결 직후), pending 폴링 매 사이클
+- DDL 실행 순서: pending_orders → order_history → account_snapshots (FK 의존성)
+- 변경 파일 9개:
+  - Python 신규: sync/__init__.py, sync/supabase_sync.py
+  - Python 수정: trading/engine.py, trading/order_manager.py
+  - Web 신규: src/types/supabase.ts
+  - Web 수정: src/lib/supabase.ts, src/app/api/accounts/route.ts, src/app/api/orders/route.ts, src/app/api/orders/[uuid]/route.ts
+- 구현 라운드: R1(DDL 사용자실행) → R2(Python 동기화, 병렬) → R3(웹 API 수정, 병렬)
+
+## 미션 4 완료 작업
+- R2 Python 동기화 모듈:
+  - sync/__init__.py (신규) - 빈 패키지 초기화
+  - sync/supabase_sync.py (신규) - SupabaseSync 클래스 (잔고/주문/pending 처리, 30초 주기, 예외 무시)
+  - trading/engine.py (수정) - __init__에 sync 초기화, _execute_cycle에 _sync_account_if_needed + _process_pending_orders 추가
+  - trading/order_manager.py (수정) - __init__에 sync 파라미터, execute_buy/sell 후 push_order_history 추가
+- R3 웹 API 수정:
+  - src/types/supabase.ts (신규) - AccountSnapshotRow, OrderHistoryRow, PendingOrderRow 타입
+  - src/lib/supabase.ts (수정) - 5개 함수 추가 (getLatestAccountSnapshot, getOrderHistory, getOrderHistoryByUuid, createPendingOrder, cancelPendingOrder)
+  - src/app/api/accounts/route.ts (수정) - Upbit→Supabase, UpbitBalance[] 형식 유지, X-Snapshot-At 헤더
+  - src/app/api/orders/route.ts (수정) - GET: order_history, POST: pending_orders
+  - src/app/api/orders/[uuid]/route.ts (수정) - GET: 단건조회, DELETE: 취소(409 처리)
+
+## 미션 4 검토 결과
+- CRITICAL 4건 + WARNING 5건 발견, 전부 수정 완료
+  - C-1: bot_id 누락 → payload/params에 bot_id="main" 추가
+  - C-2: side 타입 불일치 (buy/sell vs bid/ask) → OrderHistoryRow.side를 'bid'|'ask'로 수정, toUpbitOrder 변환 제거
+  - C-3: 시장가 매도 amount=0 → 현재가*수량으로 추정 계산
+  - C-4: fetch_pending_orders 정렬 컬럼 오류 (created_at→requested_at)
+  - W-1: limit 파라미터 검증 (1~200 범위 제한)
+  - W-2: holdings 타입 불일치 (float→str 변환)
+  - W-3: side 파라미터 검증 (bid/ask만 허용)
+  - W-4: mark_pending_processing 낙관적 잠금 추가
+  - W-5: orders/[uuid]/route.ts side 변환 제거
+- 빌드 검증: 성공
 
 ## 남은 작업
-- ~~Vercel 환경변수 4개 설정~~ (완료)
-- 설정 페이지(/settings) 구현 (API 키 입력 UI 등)
-- ~~Vercel KV로 전략 설정 저장 전환~~ → Supabase로 전환
-- E2E 테스트 (로그인→포트폴리오→차트→주문→설정)
+- Supabase DDL 실행 (사용자)
+- GitHub push + Vercel 재배포
+- Python 봇 재시작 (새 sync 모듈 적용)
+- E2E 테스트
 - 다크/라이트 모드 토글 UI

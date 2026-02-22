@@ -2,18 +2,19 @@
  * 개별 주문 관리 API Route (Node.js Runtime)
  *
  * GET    /api/orders/[uuid]
- * → Upbit GET /v1/order?uuid=... (주문 상세 조회)
+ * → Supabase order_history에서 upbit_uuid로 단건 조회
  *
  * DELETE /api/orders/[uuid]
- * → Upbit DELETE /v1/order?uuid=... (주문 취소)
+ * → Supabase pending_orders에서 request_uuid로 주문 취소
  *
  * 세션 인증 필수
- * fetchUpbitAPI 사용 (requireAuth: true)
+ * Python 봇이 Upbit에서 동기화한 데이터를 Supabase에서 읽고,
+ * 주문 취소는 pending_orders 상태를 변경하여 봇이 처리합니다.
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifySession } from '@/lib/session'
-import { fetchUpbitAPI } from '@/lib/upbit-jwt'
+import { getOrderHistoryByUuid, cancelPendingOrder } from '@/lib/supabase'
 import type { UpbitOrder } from '@/types/upbit'
 
 /**
@@ -61,11 +62,32 @@ export async function GET(
       )
     }
 
-    // Upbit 주문 상세 조회 API 호출
-    const order = await fetchUpbitAPI<UpbitOrder>('/v1/order', {
-      params: { uuid },
-      requireAuth: true,
-    })
+    // Supabase에서 주문 이력 단건 조회
+    const row = await getOrderHistoryByUuid(uuid)
+
+    if (!row) {
+      return NextResponse.json(
+        { error: '주문을 찾을 수 없습니다' },
+        { status: 404 }
+      )
+    }
+
+    // OrderHistoryRow → UpbitOrder 변환
+    const order: UpbitOrder = {
+      uuid: row.upbit_uuid,
+      side: row.side,
+      ord_type: row.ord_type,
+      price: row.price != null ? String(row.price) : null,
+      state: 'done',
+      market: row.market,
+      created_at: row.created_at,
+      volume: row.volume != null ? String(row.volume) : null,
+      remaining_volume: '0',
+      executed_volume: row.volume != null ? String(row.volume) : '0',
+      trades_count: 1,
+      paid_fee: '0',
+      locked: '0',
+    }
 
     return NextResponse.json(order)
   } catch (error) {
@@ -94,14 +116,25 @@ export async function DELETE(
       )
     }
 
-    // Upbit 주문 취소 API 호출
-    const order = await fetchUpbitAPI<UpbitOrder>('/v1/order', {
-      method: 'DELETE',
-      params: { uuid },
-      requireAuth: true,
-    })
+    // Supabase pending_orders에서 주문 취소
+    const cancelled = await cancelPendingOrder(uuid)
 
-    return NextResponse.json(order)
+    if (!cancelled) {
+      return NextResponse.json(
+        { error: '취소할 수 없는 주문입니다 (이미 처리되었거나 존재하지 않음)' },
+        { status: 409 }
+      )
+    }
+
+    // 취소 성공 응답
+    return NextResponse.json({
+      uuid: cancelled.request_uuid,
+      market: cancelled.market,
+      side: cancelled.side,
+      ord_type: cancelled.ord_type,
+      status: cancelled.status,
+      cancelled_at: new Date().toISOString(),
+    })
   } catch (error) {
     const message =
       error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다'
