@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from 'sonner'
 import type { BotConfig, StrategyConfig } from '@/types/trading'
 
 // ─────────────────────────────────────────────
@@ -54,7 +55,7 @@ interface StrategySectionProps {
 const DEFAULT_VALUES: StrategyConfigInput = {
   active: 'rsi',
   rsi: { period: 14, oversold: 30, overbought: 70 },
-  ma_cross: { short_period: 5, long_period: 20, ma_type: 'SMA' as const },
+  ma_cross: { short_period: 9, long_period: 21, ma_type: 'EMA' as const },
   bollinger: { period: 20, std_dev: 2.0 },
 }
 
@@ -89,10 +90,18 @@ export function StrategySection({
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 깊은 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      const VALID_STRATEGIES = ['rsi', 'ma_cross', 'bollinger'] as const
+      reset({
+        active: VALID_STRATEGIES.includes(data.active as typeof VALID_STRATEGIES[number])
+          ? (data.active as StrategyConfigInput['active'])
+          : DEFAULT_VALUES.active,
+        rsi: { ...DEFAULT_VALUES.rsi, ...data.rsi },
+        ma_cross: { ...DEFAULT_VALUES.ma_cross, ...data.ma_cross },
+        bollinger: { ...DEFAULT_VALUES.bollinger, ...data.bollinger },
+      })
     }
   }, [data, reset])
 
@@ -117,7 +126,21 @@ export function StrategySection({
       <CardContent>
         <form
           id="strategy-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Strategy form validation errors:', fieldErrors)
+            const messages: string[] = []
+            const collect = (obj: Record<string, unknown>, prefix = '') => {
+              for (const [key, val] of Object.entries(obj)) {
+                if (val && typeof val === 'object' && 'message' in val && typeof val.message === 'string') {
+                  messages.push(val.message)
+                } else if (val && typeof val === 'object') {
+                  collect(val as Record<string, unknown>, `${prefix}${key}.`)
+                }
+              }
+            }
+            collect(fieldErrors)
+            toast.error(messages[0] ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 활성 전략 선택 */}
@@ -128,6 +151,7 @@ export function StrategySection({
               onValueChange={(v) =>
                 setValue('active', v as StrategyConfigInput['active'], {
                   shouldValidate: true,
+                  shouldDirty: true,
                 })
               }
             >
@@ -241,6 +265,7 @@ export function StrategySection({
                     onValueChange={(v) =>
                       setValue('ma_cross.ma_type', v as 'SMA' | 'EMA', {
                         shouldValidate: true,
+                        shouldDirty: true,
                       })
                     }
                   >

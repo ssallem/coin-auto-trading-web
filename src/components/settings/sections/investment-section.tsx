@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import type { BotConfig, InvestmentConfig } from '@/types/trading'
 
 // ─────────────────────────────────────────────
@@ -73,10 +74,10 @@ export function InvestmentSection({
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      reset({ ...DEFAULT_VALUES, ...data })
     }
   }, [data, reset])
 
@@ -102,7 +103,11 @@ export function InvestmentSection({
       <CardContent>
         <form
           id="investment-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Investment form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

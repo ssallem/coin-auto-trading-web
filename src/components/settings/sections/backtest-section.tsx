@@ -16,6 +16,7 @@ import {
   BacktestConfigSchema,
   type BacktestConfigInput,
 } from '@/lib/validations/config.schema'
+import { toast } from 'sonner'
 import type { BotConfig, BacktestConfig } from '@/types/trading'
 import {
   Card,
@@ -66,10 +67,10 @@ export function BacktestSection({ data, onSave, isSaving }: BacktestSectionProps
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      reset({ ...DEFAULT_VALUES, ...data })
     }
   }, [data, reset])
 
@@ -90,7 +91,11 @@ export function BacktestSection({ data, onSave, isSaving }: BacktestSectionProps
       <CardContent>
         <form
           id="backtest-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Backtest form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 백테스트 기간 */}

@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from 'sonner'
 import type { BotConfig, TradingSettings } from '@/types/trading'
 
 // ─────────────────────────────────────────────
@@ -105,6 +106,8 @@ const TIMEFRAME_OPTIONS = [
   { value: 'month', label: '월봉' },
 ] as const
 
+const VALID_TIMEFRAMES = TIMEFRAME_OPTIONS.map((o) => o.value) as readonly string[]
+
 // ─────────────────────────────────────────────
 // 컴포넌트
 // ─────────────────────────────────────────────
@@ -127,14 +130,16 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
     },
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
       reset({
-        markets_str: data.markets.join(','),
-        poll_interval: data.poll_interval,
-        timeframe: data.timeframe as TradingFormValues['timeframe'],
-        candle_count: data.candle_count,
+        markets_str: Array.isArray(data.markets) ? data.markets.join(',') : '',
+        poll_interval: data.poll_interval ?? 60,
+        timeframe: VALID_TIMEFRAMES.includes(data.timeframe)
+          ? (data.timeframe as TradingFormValues['timeframe'])
+          : 'minute60',
+        candle_count: data.candle_count ?? 200,
       })
     }
   }, [data, reset])
@@ -171,7 +176,11 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
       <CardContent>
         <form
           id="trading-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Trading form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 마켓 목록 */}
@@ -221,6 +230,7 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
                 onValueChange={(v) =>
                   setValue('timeframe', v as TradingFormValues['timeframe'], {
                     shouldValidate: true,
+                    shouldDirty: true,
                   })
                 }
               >

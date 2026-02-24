@@ -17,6 +17,7 @@ import {
   RiskConfigSchema,
   type RiskConfigInput,
 } from '@/lib/validations/strategy.schema'
+import { toast } from 'sonner'
 import type { BotConfig, RiskConfig } from '@/types/trading'
 import {
   Card,
@@ -71,10 +72,14 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      reset({
+        ...DEFAULT_VALUES,
+        ...data,
+        trailing_stop: { ...DEFAULT_VALUES.trailing_stop, ...data.trailing_stop },
+      })
     }
   }, [data, reset])
 
@@ -98,7 +103,11 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
       <CardContent>
         <form
           id="risk-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Risk form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 손절 / 익절 비율 */}
@@ -155,6 +164,7 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
                 onCheckedChange={(checked) =>
                   setValue('trailing_stop.enabled', checked, {
                     shouldValidate: true,
+                    shouldDirty: true,
                   })
                 }
               />

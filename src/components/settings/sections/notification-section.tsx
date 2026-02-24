@@ -16,6 +16,7 @@ import {
   NotificationConfigSchema,
   type NotificationConfigInput,
 } from '@/lib/validations/config.schema'
+import { toast } from 'sonner'
 import type { BotConfig, NotificationConfig } from '@/types/trading'
 import {
   Card,
@@ -91,10 +92,10 @@ export function NotificationSection({
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      reset({ ...DEFAULT_VALUES, ...data })
     }
   }, [data, reset])
 
@@ -109,7 +110,7 @@ export function NotificationSection({
     const updated = checked
       ? [...current, eventValue]
       : current.filter((e) => e !== eventValue)
-    setValue('events', updated, { shouldValidate: true })
+    setValue('events', updated, { shouldValidate: true, shouldDirty: true })
   }
 
   /* 저장 핸들러 */
@@ -129,7 +130,11 @@ export function NotificationSection({
       <CardContent>
         <form
           id="notification-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Notification form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 알림 활성화 */}
@@ -143,7 +148,7 @@ export function NotificationSection({
             <Switch
               checked={enabled}
               onCheckedChange={(checked) =>
-                setValue('enabled', checked, { shouldValidate: true })
+                setValue('enabled', checked, { shouldValidate: true, shouldDirty: true })
               }
             />
           </div>
@@ -161,7 +166,7 @@ export function NotificationSection({
                     setValue(
                       'channel',
                       value as NotificationConfigInput['channel'],
-                      { shouldValidate: true }
+                      { shouldValidate: true, shouldDirty: true }
                     )
                   }
                 >

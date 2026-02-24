@@ -16,6 +16,7 @@ import {
   LoggingConfigSchema,
   type LoggingConfigInput,
 } from '@/lib/validations/config.schema'
+import { toast } from 'sonner'
 import type { BotConfig, LoggingConfig } from '@/types/trading'
 import {
   Card,
@@ -86,10 +87,10 @@ export function LoggingSection({ data, onSave, isSaving }: LoggingSectionProps) 
     defaultValues: DEFAULT_VALUES,
   })
 
-  /* 서버 데이터로 폼 초기화 */
+  /* 서버 데이터로 폼 초기화 (방어적 병합) */
   useEffect(() => {
     if (data) {
-      reset(data)
+      reset({ ...DEFAULT_VALUES, ...data })
     }
   }, [data, reset])
 
@@ -113,7 +114,11 @@ export function LoggingSection({ data, onSave, isSaving }: LoggingSectionProps) 
       <CardContent>
         <form
           id="logging-form"
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+            console.error('Logging form validation errors:', fieldErrors)
+            const firstError = Object.values(fieldErrors).find((e) => e?.message)
+            toast.error(firstError?.message ?? '입력값을 확인해주세요')
+          })}
           className="space-y-6"
         >
           {/* 로그 레벨 */}
@@ -124,6 +129,7 @@ export function LoggingSection({ data, onSave, isSaving }: LoggingSectionProps) 
               onValueChange={(value) =>
                 setValue('level', value as LoggingConfigInput['level'], {
                   shouldValidate: true,
+                  shouldDirty: true,
                 })
               }
             >
