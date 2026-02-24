@@ -124,8 +124,8 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
     resolver: zodResolver(TradingFormSchema),
     defaultValues: {
       markets_str: '',
-      poll_interval: 60,
-      timeframe: 'minute60',
+      poll_interval: 30,
+      timeframe: 'minute5',
       candle_count: 200,
     },
   })

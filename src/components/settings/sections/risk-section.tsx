@@ -48,11 +48,11 @@ interface RiskSectionProps {
 // ─────────────────────────────────────────────
 
 const DEFAULT_VALUES: RiskConfigInput = {
-  stop_loss_pct: 3,
-  take_profit_pct: 5,
-  trailing_stop: { enabled: false, pct: 2 },
-  max_daily_loss: 100_000,
-  max_positions: 5,
+  stop_loss_pct: 2,
+  take_profit_pct: 3,
+  trailing_stop: { enabled: true, pct: 1.5 },
+  max_daily_loss: 50_000,
+  max_positions: 10,
 }
 
 // ─────────────────────────────────────────────

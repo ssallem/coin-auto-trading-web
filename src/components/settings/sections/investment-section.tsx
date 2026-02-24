@@ -42,7 +42,7 @@ interface InvestmentSectionProps {
 
 const DEFAULT_VALUES: InvestmentConfig = {
   max_total_investment: 1_000_000,
-  per_trade_amount: 100_000,
+  per_trade_amount: 50_000,
   min_order_amount: 5_000,
 }
 

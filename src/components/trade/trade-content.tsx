@@ -8,7 +8,10 @@
  * 반응형: 데스크탑 나란히, 모바일 탭 전환
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
+import { queryKeys, QUERY_CONFIG } from '@/lib/query-keys'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicker } from '@/hooks/use-ticker'
 import { PriceDisplay } from '@/components/common/price-display'
@@ -24,20 +27,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-
-/** 주요 KRW 마켓 목록 */
-const MARKETS = [
-  { code: 'KRW-BTC', name: '비트코인' },
-  { code: 'KRW-ETH', name: '이더리움' },
-  { code: 'KRW-XRP', name: '리플' },
-  { code: 'KRW-SOL', name: '솔라나' },
-  { code: 'KRW-DOGE', name: '도지코인' },
-  { code: 'KRW-ADA', name: '에이다' },
-  { code: 'KRW-AVAX', name: '아발란체' },
-  { code: 'KRW-DOT', name: '폴카닷' },
-  { code: 'KRW-MATIC', name: '폴리곤' },
-  { code: 'KRW-LINK', name: '체인링크' },
-]
+import type { UpbitMarket } from '@/types/upbit'
 
 /** 가격을 한국 원화 관례에 맞게 포맷합니다. */
 function formatKRW(value: number): string {
@@ -47,6 +37,26 @@ function formatKRW(value: number): string {
 export function TradeContent() {
   const { selectedMarket, setSelectedMarket } = useUIStore()
   const [mobileTab, setMobileTab] = useState<string>('order')
+
+  /* 마켓 목록 조회 */
+  const { data: markets, isLoading: isMarketsLoading } = useQuery({
+    queryKey: queryKeys.markets(),
+    queryFn: async () => {
+      const { data } = await axios.get<UpbitMarket[]>('/api/markets')
+      return data
+    },
+    staleTime: QUERY_CONFIG.markets.staleTime,
+  })
+
+  /* KRW 마켓만 필터링 */
+  const krwMarkets = markets?.filter((m) => m.market.startsWith('KRW-')) ?? []
+
+  /* selectedMarket 동기화: krwMarkets 로드 후 목록에 없으면 첫 번째 마켓으로 설정 */
+  useEffect(() => {
+    if (krwMarkets.length > 0 && !krwMarkets.find((m) => m.market === selectedMarket)) {
+      setSelectedMarket(krwMarkets[0].market)
+    }
+  }, [krwMarkets, selectedMarket, setSelectedMarket])
 
   /* 현재가 조회 */
   const { data: tickers } = useTicker([selectedMarket])
@@ -58,7 +68,7 @@ export function TradeContent() {
     : '-'
 
   const marketName =
-    MARKETS.find((m) => m.code === selectedMarket)?.name ?? selectedMarket
+    krwMarkets.find((m) => m.market === selectedMarket)?.korean_name ?? selectedMarket
 
   return (
     <div className="space-y-4">
@@ -69,13 +79,13 @@ export function TradeContent() {
             {/* 마켓 선택 */}
             <div className="flex items-center gap-3">
               <Select value={selectedMarket} onValueChange={setSelectedMarket}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
+                <SelectTrigger className="w-[180px]" disabled={isMarketsLoading}>
+                  <SelectValue placeholder={isMarketsLoading ? "마켓 로딩 중..." : "마켓 선택"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {MARKETS.map((m) => (
-                    <SelectItem key={m.code} value={m.code}>
-                      {m.name} ({m.code.replace('KRW-', '')})
+                  {krwMarkets.map((m) => (
+                    <SelectItem key={m.market} value={m.market}>
+                      {m.korean_name} ({m.market.replace('KRW-', '')})
                     </SelectItem>
                   ))}
                 </SelectContent>

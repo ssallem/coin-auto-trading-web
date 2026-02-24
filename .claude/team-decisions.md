@@ -288,9 +288,79 @@
   - W-5: orders/[uuid]/route.ts side 변환 제거
 - 빌드 검증: 성공
 
+## 미션 5: 거래 Combobox + 공격적 단타 전략 (2026-02-24)
+- 원본 요청:
+  1. 거래 탭 Combobox에 USDC(보유 코인)가 표시 안됨 → 수정
+  2. 매수/매도 최소 5만원으로 변경 (현재 1만원 → 수익 미미)
+  3. 공격적 단타 전략 + 최신 매매 기법 적용
+- 작업 유형: 버그 수정 + 전략 최적화
+- 복잡도: 보통
+- 팀 구성: explorer(2) → coder(1~2) → critic(1)
+
+### 미션 5 탐색 결과
+- **USDC 문제 원인**: trade-content.tsx:28-40에 하드코딩된 MARKETS 배열(10개 코인)에 USDC 미포함
+  - Chart 탭은 /api/markets 동적 API 사용 (Upbit 전체 KRW 마켓 반환)
+  - Trade 탭만 하드코딩 → 불일치
+  - 해결: Trade 탭도 /api/markets 동적 방식으로 전환 (chart-toolbar.tsx와 동일 패턴)
+- **현재 전략 설정** (보수적 중장기):
+  - 투자: per_trade=100,000원, min_order=5,000원
+  - RSI: period=14, oversold=30, overbought=70
+  - 리스크: stop_loss=3%, take_profit=5%, trailing_stop=OFF
+  - 타이밍: poll_interval=60초, timeframe=minute60 (1시간봉)
+- **Python 봇 전략 로직**:
+  - RSI: oversold 이하→BUY, overbought 이상→SELL
+  - MA Cross: 골든크로스→BUY, 데드크로스→SELL
+  - Bollinger: 하단밴드 이탈→BUY, 상단밴드 이탈→SELL
+  - 리스크: check_position()에서 stop_loss/take_profit/trailing_stop 체크
+
+### 미션 5 설계 결정
+- **Task A**: trade-content.tsx의 MARKETS 하드코딩 → /api/markets 동적 API로 전환
+  - chart-toolbar.tsx와 동일 패턴 (useQuery + queryKeys.markets())
+  - 보유 코인(USDC 등)이 KRW마켓이면 자동 포함
+- **Task B**: 웹 기본값을 공격적 단타 전략으로 변경
+  - per_trade_amount: 100,000 → 50,000
+  - RSI: period 14→7, oversold 30→35, overbought 70→65
+  - MA Cross: short 9→5, long 21→13
+  - Bollinger: period 20→10, std_dev 2.0→1.5
+  - 리스크: stop_loss 3%→2%, take_profit 5%→3%, trailing_stop ON(1.5%), max_positions 5→10
+  - 타이밍: poll_interval 60→30, timeframe minute60→minute5
+- 변경 대상 파일:
+  - trade-content.tsx (마켓 목록 동적화)
+  - strategy-section.tsx (전략 기본값)
+  - risk-section.tsx (리스크 기본값)
+  - investment-section.tsx (투자금 기본값)
+  - trading-section.tsx (타이밍 기본값)
+
+### 미션 5 완료 작업
+- Task A: trade-content.tsx 마켓 Combobox 동적화 완료
+  - 하드코딩 MARKETS 배열(10개) 제거
+  - useQuery + /api/markets API로 전환 (chart-toolbar.tsx 패턴)
+  - KRW 마켓 필터링, korean_name 표시
+  - USDC 등 모든 KRW 마켓 자동 포함
+- Task B: 공격적 단타 전략 기본값 적용 완료
+  - strategy: RSI 7/35/65, MA 5/13/EMA, Bollinger 10/1.5
+  - risk: stop_loss 2%, take_profit 3%, trailing ON 1.5%, max_positions 10
+  - investment: per_trade 50,000
+  - trading: poll_interval 30초, timeframe minute5
+
+### 미션 5 변경 파일
+- src/components/trade/trade-content.tsx (마켓 목록 동적 API 전환)
+- src/components/settings/sections/strategy-section.tsx (전략 기본값)
+- src/components/settings/sections/risk-section.tsx (리스크 기본값)
+- src/components/settings/sections/investment-section.tsx (투자금 기본값)
+- src/components/settings/sections/trading-section.tsx (타이밍 기본값)
+
+### 미션 5 검토 결과
+- CRITICAL: 0건
+- WARNING: 3건
+  - W-1: trade-content.tsx - selectedMarket 초기값('KRW-BTC')이 동적 목록과 동기화 안됨
+  - W-2: trade-content.tsx - 마켓 목록 로딩 중 UI 처리 없음 (빈 Select)
+  - W-3: types/trading.ts - TradingSettings.timeframe이 string으로 너무 넓음 (enum 필요)
+- W-1, W-2 수정 완료 (trade-content.tsx)
+  - useEffect로 selectedMarket 동기화 추가
+  - isMarketsLoading으로 로딩 UI 처리 추가
+- W-3는 기존 코드의 타입 이슈로 이번 scope에서 보류
+
 ## 남은 작업
-- Supabase DDL 실행 (사용자)
-- GitHub push + Vercel 재배포
-- Python 봇 재시작 (새 sync 모듈 적용)
 - E2E 테스트
 - 다크/라이트 모드 토글 UI
