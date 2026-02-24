@@ -54,9 +54,9 @@ interface StrategySectionProps {
 
 const DEFAULT_VALUES: StrategyConfigInput = {
   active: 'rsi',
-  rsi: { period: 7, oversold: 35, overbought: 65 },
+  rsi: { period: 14, oversold: 30, overbought: 70 },
   ma_cross: { short_period: 5, long_period: 13, ma_type: 'EMA' as const },
-  bollinger: { period: 10, std_dev: 1.5 },
+  bollinger: { period: 20, std_dev: 2.0 },
 }
 
 // ─────────────────────────────────────────────

@@ -124,8 +124,8 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
     resolver: zodResolver(TradingFormSchema),
     defaultValues: {
       markets_str: '',
-      poll_interval: 30,
-      timeframe: 'minute5',
+      poll_interval: 180,
+      timeframe: 'minute15',
       candle_count: 200,
     },
   })
@@ -135,10 +135,10 @@ export function TradingSection({ data, onSave, isSaving }: TradingSectionProps) 
     if (data) {
       reset({
         markets_str: Array.isArray(data.markets) ? data.markets.join(',') : '',
-        poll_interval: data.poll_interval ?? 60,
+        poll_interval: data.poll_interval ?? 180,
         timeframe: VALID_TIMEFRAMES.includes(data.timeframe)
           ? (data.timeframe as TradingFormValues['timeframe'])
-          : 'minute60',
+          : 'minute15',
         candle_count: data.candle_count ?? 200,
       })
     }
