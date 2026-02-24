@@ -29,6 +29,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import type { UpbitMarket } from '@/types/upbit'
 
+/** 유명 코인 30개 (KRW 마켓 심볼) */
+const TOP_30_SYMBOLS = new Set([
+  'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',
+  'ADA', 'AVAX', 'LINK', 'DOT', 'MATIC',
+  'TRX', 'ATOM', 'ETC', 'XLM', 'ALGO',
+  'NEAR', 'ICP', 'APT', 'ARB', 'OP',
+  'SAND', 'MANA', 'AXS', 'HBAR', 'EOS',
+  'BTT', 'SUI', 'SEI', 'STX', 'USDC',
+])
+
 /** 가격을 한국 원화 관례에 맞게 포맷합니다. */
 function formatKRW(value: number): string {
   return new Intl.NumberFormat('ko-KR').format(Math.floor(value))
@@ -48,8 +58,10 @@ export function TradeContent() {
     staleTime: QUERY_CONFIG.markets.staleTime,
   })
 
-  /* KRW 마켓만 필터링 */
-  const krwMarkets = markets?.filter((m) => m.market.startsWith('KRW-')) ?? []
+  /* KRW 마켓 중 유명 30개만 필터링 + 이름순 정렬 */
+  const krwMarkets = (markets
+    ?.filter((m) => m.market.startsWith('KRW-') && TOP_30_SYMBOLS.has(m.market.replace('KRW-', '')))
+    .sort((a, b) => a.korean_name.localeCompare(b.korean_name, 'ko')) ?? [])
 
   /* selectedMarket 동기화: krwMarkets 로드 후 목록에 없으면 첫 번째 마켓으로 설정 */
   useEffect(() => {
