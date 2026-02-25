@@ -35,8 +35,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { PriceDisplay } from '@/components/common/price-display'
 import { CardSkeleton, TableSkeleton } from '@/components/common/loading-skeleton'
-import type { UpbitMarket, UpbitTicker } from '@/types/upbit'
-import type { RsiData } from '@/hooks/use-rsi'
+import type { UpbitMarket } from '@/types/upbit'
 
 /**
  * 매수 후보 데이터 (RSI + 현재가 + 한글명 조합)
