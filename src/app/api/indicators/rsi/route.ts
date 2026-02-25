@@ -71,30 +71,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'period는 2~50 사이 정수여야 합니다' }, { status: 400 })
     }
 
-    // 각 마켓별로 캔들 데이터를 병렬 조회하여 RSI 계산
+    // 각 마켓별로 캔들 데이터를 배치 처리하여 RSI 계산 (타임아웃 방지)
     const count = period + 10 // 충분한 데이터
-    const results: RsiResult[] = await Promise.all(
-      markets.map(async (market) => {
-        try {
-          const params = new URLSearchParams({ market, count: String(count) })
-          const res = await fetch(
-            `${UPBIT_API_BASE}/v1/candles/minutes/${unit}?${params.toString()}`,
-            { headers: { 'Content-Type': 'application/json' } },
-          )
+    const results: RsiResult[] = []
+    const BATCH_SIZE = 5
 
-          if (!res.ok) return { market, rsi: null }
+    for (let i = 0; i < markets.length; i += BATCH_SIZE) {
+      const batch = markets.slice(i, i + BATCH_SIZE)
+      const batchResults = await Promise.all(
+        batch.map(async (market) => {
+          try {
+            const params = new URLSearchParams({ market, count: String(count) })
+            const res = await fetch(
+              `${UPBIT_API_BASE}/v1/candles/minutes/${unit}?${params.toString()}`,
+              { headers: { 'Content-Type': 'application/json' } },
+            )
 
-          const candles = await res.json() as { trade_price: number }[]
-          // Upbit 캔들은 최신순이므로 역순으로 정렬 (오래된 것 먼저)
-          const closePrices = candles.map((c) => c.trade_price).reverse()
-          const rsi = calculateRSI(closePrices, period)
+            if (!res.ok) return { market, rsi: null }
 
-          return { market, rsi: rsi !== null ? Math.round(rsi * 10) / 10 : null }
-        } catch {
-          return { market, rsi: null }
-        }
-      }),
-    )
+            const candles = await res.json() as { trade_price: number }[]
+            // Upbit 캔들은 최신순이므로 역순으로 정렬 (오래된 것 먼저)
+            const closePrices = candles.map((c) => c.trade_price).reverse()
+            const rsi = calculateRSI(closePrices, period)
+
+            return { market, rsi: rsi !== null ? Math.round(rsi * 10) / 10 : null }
+          } catch {
+            return { market, rsi: null }
+          }
+        }),
+      )
+      results.push(...batchResults)
+
+      // 배치 사이 딜레이 (Upbit rate limit 준수)
+      if (i + BATCH_SIZE < markets.length) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+    }
 
     return NextResponse.json(results)
   } catch (error) {

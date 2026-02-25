@@ -535,6 +535,58 @@
 - src/components/trade/trade-content.tsx (수정)
 - src/components/chart/chart-toolbar.tsx (수정)
 
+### 미션 8 완료
+- Task A: constants.ts 추출, trade-content.tsx/chart-toolbar.tsx에서 import 교체
+- Task B: candidates 페이지 + sidebar 메뉴 추가
+- Critic 결과: WARNING 2건 수정 (ticker Map 최적화, 에러 핸들링 추가), ESLint 미사용 import 제거
+- 커밋: 38daca4 + 4883497, push 완료
+
+## 미션 9: 봇 TOP 30 자동 스캔 + 매수후보 페이지 에러 수정 (2026-02-25)
+- 원본 요청: "TOP 30 자동 스캔으로 바꿔줘. 그리고 매수후보 페이지 진입하면 '데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'가 나오면서 계속 화면이 깜빡거려.."
+- 작업 유형: 버그 수정 + 설정 변경
+- 복잡도: 보통
+- 핵심 목표:
+  1. Python 봇의 매매 대상을 3개(BTC/ETH/XRP) → TOP 30으로 확장 (Supabase bot_config 수정)
+  2. /candidates 페이지 에러 + 깜빡임 문제 수정
+
+## 작업 분석
+- 작업 유형: 버그 수정 + 설정 변경
+- 복잡도: 보통
+- 팀 구성: explorer(2) → coder(1~2) → critic(1)
+
+### 탐색 결과
+
+**봇 TOP 30 확장:**
+- 확장 가능: API rate limit 3.3%/분, 처리시간 1.7%/사이클
+- Supabase bot_config.trading.markets 30개로 업데이트 + 봇 재시작 필요
+
+**매수후보 에러 근본 원인:**
+- /api/ticker/route.ts의 MAX_MARKETS=20 → 30개 요청 시 400 에러
+- React Query refetchInterval(2초) + 에러 = 깜빡임 무한 루프
+- /api/indicators/rsi: 30개 코인 병렬 호출 → Edge Runtime 10초 타임아웃 위험
+
+### 수정 계획
+- Task A: /api/ticker MAX_MARKETS 20→100으로 증가
+- Task B: /api/indicators/rsi 배치 처리 (5개씩 + 100ms 딜레이)
+- Task C: Supabase bot_config.trading.markets를 TOP 30으로 업데이트
+- Task D: candidates 에러 시 이전 데이터 유지 (깜빡임 방지)
+- Task E: useRsi/useTicker에 retry:2 + retryDelay 추가
+
+### 완료된 작업
+- Task A: /api/ticker MAX_MARKETS 20→100 완료
+- Task B: /api/indicators/rsi 배치 처리 (BATCH_SIZE=5, 100ms delay) 완료
+- Task C: Supabase bot_config.trading.markets 30개 업데이트 완료 (2026-02-25T03:13)
+- Task D: candidates isError 조건을 `isError && candidates.length === 0`으로 변경 완료
+- Task E: use-rsi.ts, use-ticker.ts에 retry:2 + retryDelay 추가 완료
+
+### 변경 파일
+- src/app/api/ticker/route.ts (MAX_MARKETS 20→100)
+- src/app/api/indicators/rsi/route.ts (배치 처리 리팩토링)
+- src/components/candidates/candidates-content.tsx (에러 조건 개선)
+- src/hooks/use-rsi.ts (retry 옵션 추가)
+- src/hooks/use-ticker.ts (retry 옵션 추가)
+- Supabase bot_config.trading.markets (3개→30개)
+
 ## 남은 작업
 - E2E 테스트
 - 다크/라이트 모드 토글 UI

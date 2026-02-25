@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // markets 파라미터 형식 및 개수 검증
     const marketList = markets.split(',')
     const MARKET_PATTERN = /^KRW-[A-Z0-9]+$/
-    const MAX_MARKETS = 20
+    const MAX_MARKETS = 100
 
     if (marketList.length > MAX_MARKETS) {
       return NextResponse.json(

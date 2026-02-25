@@ -34,5 +34,7 @@ export function useTicker(markets: string[]) {
     refetchInterval: QUERY_CONFIG.ticker.refetchInterval,
     /** 마켓 코드가 있을 때만 조회 */
     enabled: markets.length > 0,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   })
 }

@@ -26,5 +26,7 @@ export function useRsi(markets: string[], period = 14, unit = 15) {
     staleTime: QUERY_CONFIG.rsi.staleTime,
     refetchInterval: QUERY_CONFIG.rsi.refetchInterval,
     enabled: markets.length > 0,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   })
 }

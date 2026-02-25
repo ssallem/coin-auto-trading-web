@@ -164,7 +164,8 @@ export function CandidatesContent() {
     )
   }
 
-  if (isError) {
+  // 에러가 발생했지만 이전 데이터가 있으면 계속 표시 (깜빡임 방지)
+  if (isError && candidates.length === 0) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -185,6 +186,12 @@ export function CandidatesContent() {
           <CardDescription>
             TOP 30 코인의 RSI 지표를 실시간 모니터링합니다. RSI가 낮을수록 매수 기회입니다.
           </CardDescription>
+          {/* 에러 발생 시 경고 배너 (이전 데이터가 있을 때) */}
+          {isError && candidates.length > 0 && (
+            <p className="text-destructive text-xs mt-1">
+              ⚠ 최신 데이터 갱신에 실패했습니다. 이전 데이터를 표시 중입니다.
+            </p>
+          )}
           {/* 매수 추천 종목 개수 표시 */}
           <div className="pt-2">
             <p className="text-sm font-medium">
