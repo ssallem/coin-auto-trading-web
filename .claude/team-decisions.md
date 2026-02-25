@@ -361,6 +361,180 @@
   - isMarketsLoading으로 로딩 UI 처리 추가
 - W-3는 기존 코드의 타입 이슈로 이번 scope에서 보류
 
+## 미션 6: 비트코인 마이너스 원인 분석 + 전략 개선 검토 (2026-02-24)
+- 원본 요청: "지금 비트코인 상황이 안좋아서 계속 마이너스 인거야? 더 좋은 전략으로 시도해 볼 방법이 있어? 방법이 없으면 그냥 기존대로 놔둬."
+- 작업 유형: 조사/분석
+- 복잡도: 보통
+- 팀 구성: explorer(2, 병렬) → critic(1)
+- 핵심 질문:
+  1. 현재 BTC 시장 상황이 마이너스의 주원인인가?
+  2. 현재 봇 전략(RSI 7/35/65, 5분봉, 30초 폴링)에 구조적 문제가 있는가?
+  3. 더 나은 전략이 있는가? 없으면 기존 유지.
+
+### 미션 6 탐색 결과
+
+**[Explorer 1: 거래 실적 + 시장 상황]**
+- BTC 24h: -3.16% 급락 (92,337,000원, 고점 95,762,000 대비 -3.6%)
+- 총 거래: 매수 28회, 매도 22회, 총 손익 -11.20 KRW (미미한 손실)
+- 승률: 45.5% (10승/22거래)
+- 계좌: 원화 11,869원(거의 고갈), BTC/ETH/XRP 보유 (약 30만원)
+- 봇 설정이 Supabase에서는 timeframe=minute3(3분봉)으로 되어있음 (minute5 아님!)
+- 로그: RSI 12~18까지 극단 과매도 발생, 분할매수 차단("이미 보유 중"), 손절/트레일링 미발동
+- XRP 매수 시 API 호출 결과 None 에러 6건
+- 손실 원인: 시장 급락(50%) + RSI 과매도 기준 너무 높음(40%) + 설정(10%)
+
+**[Explorer 2: 전략 로직 분석]**
+- RSI 전략: RSI < oversold → BUY, RSI > overbought → SELL (확신도 계산하나 매매에 미사용)
+- MA Cross: 골든/데드 크로스 기반 (이격도 1%에서 확신도 1.0)
+- Bollinger: 하단밴드 이탈 → BUY, 상단밴드 이탈 → SELL
+- 복합 전략: 미지원 (engine은 단일 전략만 self._strategy)
+- 핵심 문제점 5가지:
+  1. RSI(7) + 5분봉 = 35분치 데이터만 → 노이즈 심각
+  2. oversold=35/overbought=65 → 신호 빈도 과다 (횡보장 양방향 손실)
+  3. 30초 폴링 + 5분봉 = 같은 캔들 10회 반복 확인 (비효율)
+  4. stop_loss=2%/take_profit=3% → 손익비 1.5:1 (너무 낮음)
+  5. trailing_stop 미사용 → 이익 보호 불가
+- 대안 4가지:
+  A. 설정값만 변경: RSI 14/30/70, poll 180초, SL 3%/TP 6%, trailing ON
+  B. 15분봉 + RSI 14/25/75 (노이즈 70% 감소)
+  C. RSI+Bollinger 복합 전략 (코드 변경 필요, 거짓신호 80% 감소)
+  D. 시장상황 자동전략 (ADX 기반, 매우 복잡)
+
+### 미션 6 분석 결론
+- 마이너스 주원인: 시장 급락(BTC -3.16%) + RSI 과매도 기준이 너무 높아 "떨어지는 칼날 잡기" 반복
+- 전략 구조적 문제 있음: 설정값 조정으로 의미있는 개선 가능
+- 권고: 옵션 A(설정값만 변경) 적용 → 1주일 관찰 → 필요시 옵션 C(복합전략) 검토
+- 변경 내용: RSI 14/30/70, poll 180초, SL 3%/TP 5%, trailing ON 2%, timeframe minute15
+- 코드 변경: 불필요 (Supabase bot_config만 업데이트)
+
+## 미션 7: 포트폴리오 손익 정보 강화 (2026-02-24)
+- 원본 요청: "포트폴리오에 총 평가 손익에 손익 퍼센트라던지 투자금 대비 손익을 자세히 볼 수 있게 추가해줘. 그리고 더 유용한 투자 손익 정보를 좀 더 보여줘. 일일 매매손익 정보도 있으면 좋을것 같아."
+- 작업 유형: UI 기능 추가
+- 복잡도: 보통
+
+### 미션 7 탐색 결과
+
+**[Explorer 1: 포트폴리오 UI]**
+- 현재 4개 카드: 총평가자산(금액만), 보유KRW(금액만), 총투자금(금액만), 총손익(금액+PnlBadge%)
+- HoldingList: 7컬럼(코인명,수량,매수평균가,현재가,평가금액,손익,손익률) - 비중 없음
+- 데이터: Supabase account_snapshots → /api/accounts → useAccounts() + useTicker() + WebSocket
+- 계산: toHolding()에서 개별 코인 손익, buildSummary()에서 전체 합산
+- 누락: 자산비중 표시, 전일 대비 증감, 일일 매매손익
+- 수정 파일: portfolio-summary.tsx, holding-list.tsx, portfolio-content.tsx
+
+**[Explorer 2: 일일 손익 데이터]**
+- order_history 테이블: pnl(실현손익), pnl_pct(손익률), traded_at(체결시각), side(bid/ask), amount(체결금액)
+- Python 봇: 매도 시 pnl = sell_amount - entry_amount 계산 후 Supabase 저장, 매수 시 pnl=0
+- 현재 API: /api/orders에 날짜 필터/집계 없음
+- 필요: API /api/analytics/daily-pnl, Supabase getDailyPnlStats(), Hook useDailyPnl(), 타입 DailyPnlStats
+- 권장: 서버 사이드 집계 (Supabase에서 traded_at 날짜 필터 + pnl 합계)
+
+### 미션 7 설계
+- **Task A (백엔드)**: 일일 매매손익 API + Supabase 함수 + 훅 + 타입
+  - 신규: src/app/api/analytics/daily-pnl/route.ts
+  - 신규: src/hooks/use-daily-pnl.ts
+  - 수정: src/lib/supabase.ts (getDailyPnlStats 추가)
+  - 수정: src/types/trading.ts (DailyPnlStats 타입 추가)
+  - 수정: src/lib/query-keys.ts (analytics 키 추가)
+- **Task B (프론트엔드)**: 포트폴리오 UI 강화
+  - 수정: portfolio-summary.tsx → 카드 개선:
+    - 총평가자산: 투자금 대비 수익률% 추가
+    - 보유KRW/총투자금: 자산 비중% 추가
+    - 총손익: 이미 %있음 유지
+    - 신규 카드: 일일 매매손익 (useDailyPnl 사용, 매매수/승률/실현손익)
+  - 수정: holding-list.tsx → 비중 컬럼 추가
+  - 수정: portfolio-content.tsx → useDailyPnl 데이터 연동
+- 구현 순서: Task A 먼저 → Task B (API 의존)
+
+### 미션 7 완료 작업
+- Task A (백엔드): DailyPnlStats 타입, getDailyPnlStats() Supabase 함수, /api/analytics/daily-pnl API, useDailyPnl() 훅, queryKeys 추가
+- Task B (프론트엔드):
+  - portfolio-summary.tsx: 총평가자산에 투자수익률 PnlBadge, 보유KRW/총투자금에 자산비중%, 일일매매실적 Card 신규 (실현손익, 매수/매도건수, 승률, 매수/매도총액)
+  - holding-list.tsx: 비중 컬럼 추가 (8번째)
+  - portfolio-content.tsx: useDailyPnl() 연동, props 전달
+
+### 미션 7 변경 파일
+- src/types/trading.ts (수정 - DailyPnlStats 추가)
+- src/lib/supabase.ts (수정 - getDailyPnlStats 추가)
+- src/lib/query-keys.ts (수정 - dailyPnl 키/config 추가)
+- src/app/api/analytics/daily-pnl/route.ts (신규)
+- src/hooks/use-daily-pnl.ts (신규)
+- src/components/portfolio/portfolio-summary.tsx (수정)
+- src/components/portfolio/holding-list.tsx (수정)
+- src/components/portfolio/portfolio-content.tsx (수정)
+
+### 미션 7 검토 결과
+- CRITICAL 2건:
+  - C-1: DailyPnlStats 타입이 두 곳에서 중복 정의 (types/trading.ts + portfolio-summary.tsx 로컬)
+  - C-2: queryKey/queryFn 불일치 가능성 (use-daily-pnl.ts)
+- WARNING 3건:
+  - W-1: NaN 표시 가능성 (승률 - sellCount=0일 때)
+  - W-2: Timezone 이슈 (UTC vs KST 날짜 필터링)
+  - W-3: 서버 시간 기준 "오늘" (클라이언트와 불일치 가능)
+- SUGGESTION 6건 (대부분 코드 스타일)
+- 수정 완료:
+  - C-1: 중복 없음 확인 (이미 import 사용)
+  - C-2: use-daily-pnl.ts queryFn에서 queryDate 사용하도록 수정
+  - W-1: 승률 NaN 방지 (sellCount=0이면 "-" 표시)
+  - W-2: Supabase 날짜 필터 KST 기준으로 변환 (+09:00, lt 사용)
+  - W-3: use-daily-pnl.ts에 getKSTDate() 함수 추가
+- tsc --noEmit 빌드 검증 통과
+
+## 미션 8: 매수 후보 종목 표시 + 봇 매수 범위 분석 (2026-02-25)
+- 원본 요청: "현재 전체 코인을 대상으로 매수 시도를 하는거야? 전혀 매수가 안되고 있어서 그래. 매수 후보 종목이라도 보여주는게 어때?"
+- 작업 유형: 조사/분석 + UI 기능 추가
+- 복잡도: 보통
+- 팀 구성: explorer(2, 병렬) → coder(1~2) → critic(1)
+- 핵심 질문:
+  1. Python 봇이 감시하는 코인은 3개(BTC/ETH/XRP)뿐인가, 전체인가?
+  2. RSI 30 미만 코인이 전혀 없어서 매수가 안 되는 것인가?
+  3. 웹 대시보드에 "매수 후보 종목" 기능을 어디에 어떻게 추가할까?
+
+### 미션 8 현재 상황
+- 봇 설정: RSI 14/30/70, minute15, poll 180s, markets=[KRW-BTC, KRW-ETH, KRW-XRP]
+- 익절 비활성화(999), 트레일링 스탑 2%만 사용
+- 현재 RSI: BTC 55, ETH 58, XRP 48 → 전부 관망 구간
+- 방금 추가: 포트폴리오에 보유 코인별 RSI 표시 (useRsi 훅 + /api/indicators/rsi)
+- TOP_30_SYMBOLS: 이미 거래/차트 탭에서 사용 중
+
+### 미션 8 탐색 결과
+
+**[Explorer 1: 봇 매수 범위]**
+- 봇은 Supabase trading.markets 배열에 지정된 3개 코인만 감시 (BTC/ETH/XRP)
+- 동적 시장 스캔 기능 없음, 전체 코인 대상 아님
+- markets 배열 변경 + 봇 재시작으로 감시 대상 변경 가능
+- max_positions=10이므로 더 많은 코인 추가 가능
+
+**[Explorer 2: 웹 구조]**
+- 추천: /candidates 새 페이지 (사이드바 메뉴 추가)
+- 기존 재활용: /api/indicators/rsi, useRsi(), useTicker(), TOP_30_SYMBOLS
+- TOP_30_SYMBOLS 3곳 중복 → src/lib/constants.ts로 추출
+- 사이드바: sidebar.tsx, 6개 메뉴 존재
+
+### 미션 8 설계
+
+**Task A: TOP_30_SYMBOLS 공통 상수 추출**
+- 신규: src/lib/constants.ts (TOP_30_SYMBOLS + TOP_30_MARKETS 배열)
+- 수정: trade-content.tsx, chart-toolbar.tsx (import로 교체)
+
+**Task B: 매수 후보 페이지 구현**
+- 신규: src/app/(dashboard)/candidates/page.tsx (서버 컴포넌트)
+- 신규: src/components/candidates/candidates-content.tsx (클라이언트)
+  - TOP 30 코인 전체 RSI + 현재가 + 24h변동률 테이블
+  - RSI 낮은 순 정렬
+  - RSI < 25: "강력 매수", 25-30: "매수 추천", 30-40: "매수 대기"
+  - 40 이상: 일반 표시
+  - 빈 후보 시: "현재 매수 추천 종목이 없습니다" 메시지
+- 수정: sidebar.tsx (매수 후보 메뉴 추가, TrendingUp 아이콘)
+
+### 미션 8 변경 파일 (예정)
+- src/lib/constants.ts (신규)
+- src/app/(dashboard)/candidates/page.tsx (신규)
+- src/components/candidates/candidates-content.tsx (신규)
+- src/components/layout/sidebar.tsx (수정)
+- src/components/trade/trade-content.tsx (수정)
+- src/components/chart/chart-toolbar.tsx (수정)
+
 ## 남은 작업
 - E2E 테스트
 - 다크/라이트 모드 토글 UI

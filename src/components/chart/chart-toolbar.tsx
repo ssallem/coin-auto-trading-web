@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { queryKeys, QUERY_CONFIG } from '@/lib/query-keys'
+import { TOP_30_SYMBOLS } from '@/lib/constants'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicker } from '@/hooks/use-ticker'
 import { PriceDisplay } from '@/components/common/price-display'
@@ -27,16 +28,6 @@ import {
 } from '@/components/ui/select'
 import type { UpbitMarket, CandleInterval } from '@/types/upbit'
 import { cn } from '@/lib/utils'
-
-/** 유명 코인 30개 (KRW 마켓 심볼) */
-const TOP_30_SYMBOLS = new Set([
-  'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',
-  'ADA', 'AVAX', 'LINK', 'DOT', 'MATIC',
-  'TRX', 'ATOM', 'ETC', 'XLM', 'ALGO',
-  'NEAR', 'ICP', 'APT', 'ARB', 'OP',
-  'SAND', 'MANA', 'AXS', 'HBAR', 'EOS',
-  'BTT', 'SUI', 'SEI', 'STX', 'USDC',
-])
 
 /** 인터벌 옵션 목록 */
 const INTERVAL_OPTIONS: { value: CandleInterval; label: string }[] = [

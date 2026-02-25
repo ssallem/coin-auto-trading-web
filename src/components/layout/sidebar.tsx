@@ -17,6 +17,7 @@ import {
   History,
   Settings,
   LogOut,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ interface NavItemDef {
 
 const NAV_ITEMS: NavItemDef[] = [
   { title: '포트폴리오', href: '/portfolio', icon: LayoutDashboard },
+  { title: '매수 후보', href: '/candidates', icon: TrendingUp },
   { title: '차트', href: '/chart/KRW-BTC', icon: CandlestickChart },
   { title: '거래', href: '/trade', icon: ArrowLeftRight },
   { title: '전략', href: '/strategy', icon: Brain },

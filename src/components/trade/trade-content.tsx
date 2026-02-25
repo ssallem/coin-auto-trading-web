@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { queryKeys, QUERY_CONFIG } from '@/lib/query-keys'
+import { TOP_30_SYMBOLS } from '@/lib/constants'
 import { useUIStore } from '@/stores/ui-store'
 import { useTicker } from '@/hooks/use-ticker'
 import { PriceDisplay } from '@/components/common/price-display'
@@ -28,16 +29,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import type { UpbitMarket } from '@/types/upbit'
-
-/** 유명 코인 30개 (KRW 마켓 심볼) */
-const TOP_30_SYMBOLS = new Set([
-  'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',
-  'ADA', 'AVAX', 'LINK', 'DOT', 'MATIC',
-  'TRX', 'ATOM', 'ETC', 'XLM', 'ALGO',
-  'NEAR', 'ICP', 'APT', 'ARB', 'OP',
-  'SAND', 'MANA', 'AXS', 'HBAR', 'EOS',
-  'BTT', 'SUI', 'SEI', 'STX', 'USDC',
-])
 
 /** 가격을 한국 원화 관례에 맞게 포맷합니다. */
 function formatKRW(value: number): string {
