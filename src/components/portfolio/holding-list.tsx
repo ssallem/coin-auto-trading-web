@@ -26,6 +26,8 @@ interface HoldingListProps {
   holdings: Holding[]
   /** 티커 데이터 (change 정보 참조용) */
   tickers: UpbitTicker[]
+  /** 전체 자산 금액 (비중 계산용) */
+  totalAsset: number
 }
 
 /**
@@ -39,7 +41,7 @@ function getChange(
   return ticker?.change
 }
 
-export function HoldingList({ holdings, tickers }: HoldingListProps) {
+export function HoldingList({ holdings, tickers, totalAsset }: HoldingListProps) {
   /* 보유 코인이 없는 경우 */
   if (holdings.length === 0) {
     return (
@@ -69,11 +71,13 @@ export function HoldingList({ holdings, tickers }: HoldingListProps) {
             </TableHead>
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-right">손익률</TableHead>
+            <TableHead className="text-right">비중</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {holdings.map((holding) => {
             const change = getChange(holding.market, tickers)
+            const weight = totalAsset > 0 ? (holding.totalValue / totalAsset) * 100 : 0
 
             return (
               <TableRow key={holding.currency}>
@@ -128,6 +132,11 @@ export function HoldingList({ holdings, tickers }: HoldingListProps) {
                 {/* 손익률 */}
                 <TableCell className="text-right">
                   <PnlBadge value={holding.pnlPercent} />
+                </TableCell>
+
+                {/* 비중 */}
+                <TableCell className="text-right text-muted-foreground tabular-nums">
+                  {weight.toFixed(1)}%
                 </TableCell>
               </TableRow>
             )

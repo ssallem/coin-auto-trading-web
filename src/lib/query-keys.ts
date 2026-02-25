@@ -65,6 +65,14 @@ export const queryKeys = {
   botConfig: {
     all: ['settings', 'bot-config'] as const,
   },
+
+  // ─────────────────────────────────────────
+  // 분석 통계 (Analytics)
+  // ─────────────────────────────────────────
+
+  /** 일일 손익 통계 키 */
+  dailyPnl: (date: string) =>
+    ['analytics', 'daily-pnl', date] as const,
 }
 
 /**
@@ -115,5 +123,9 @@ export const QUERY_CONFIG = {
   /** 봇 전체 설정: 30초 신선 */
   botConfig: {
     staleTime: 30_000,
+  },
+  /** 일일 손익 통계: 1분 신선 */
+  dailyPnl: {
+    staleTime: 60_000,
   },
 } as const

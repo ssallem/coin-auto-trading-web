@@ -206,3 +206,29 @@ export interface BotConfig {
   notification: NotificationConfig
   updated_at?: string
 }
+
+// ─────────────────────────────────────────────
+// 일일 매매 손익 통계
+// ─────────────────────────────────────────────
+
+/** 일일 매매 손익 통계 */
+export interface DailyPnlStats {
+  /** 날짜 (YYYY-MM-DD) */
+  date: string
+  /** 일일 실현 손익 합계 (KRW) */
+  totalPnl: number
+  /** 매도 총액 (KRW) */
+  sellVolume: number
+  /** 매수 총액 (KRW) */
+  buyVolume: number
+  /** 매도 건수 */
+  sellCount: number
+  /** 매수 건수 */
+  buyCount: number
+  /** 수익 거래 수 (pnl > 0) */
+  winCount: number
+  /** 손실 거래 수 (pnl < 0) */
+  loseCount: number
+  /** 승률 (%) */
+  winRate: number
+}

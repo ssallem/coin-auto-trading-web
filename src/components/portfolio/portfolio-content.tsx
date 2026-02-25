@@ -15,6 +15,7 @@ import { useMemo } from 'react'
 import { useAccounts } from '@/hooks/use-accounts'
 import { useTicker } from '@/hooks/use-ticker'
 import { useUpbitWebSocket } from '@/hooks/use-upbit-websocket'
+import { useDailyPnl } from '@/hooks/use-daily-pnl'
 import { CardSkeleton, TableSkeleton } from '@/components/common/loading-skeleton'
 import { PortfolioSummary } from '@/components/portfolio/portfolio-summary'
 import { HoldingList } from '@/components/portfolio/holding-list'
@@ -123,7 +124,10 @@ export function PortfolioContent() {
     enabled: marketCodes.length > 0,
   })
 
-  /* 5. Holding 데이터 변환 */
+  /* 5. 일일 매매 손익 조회 (오늘 날짜) */
+  const { data: dailyPnl } = useDailyPnl()
+
+  /* 6. Holding 데이터 변환 */
   const holdings = useMemo<Holding[]>(() => {
     if (!accounts || !tickers) return []
 
@@ -133,13 +137,13 @@ export function PortfolioContent() {
       .map((a) => toHolding(a, tickers))
   }, [accounts, tickers])
 
-  /* 6. KRW 잔고 추출 */
+  /* 7. KRW 잔고 추출 */
   const krwBalance = useMemo(
     () => (accounts ? extractKRW(accounts) : 0),
     [accounts]
   )
 
-  /* 7. 포트폴리오 요약 생성 */
+  /* 8. 포트폴리오 요약 생성 */
   const summary = useMemo(
     () => buildSummary(holdings, krwBalance),
     [holdings, krwBalance]
@@ -164,8 +168,8 @@ export function PortfolioContent() {
   /* ─── 메인 콘텐츠 ─── */
   return (
     <div className="space-y-6">
-      {/* 상단: 포트폴리오 요약 카드 */}
-      <PortfolioSummary summary={summary} />
+      {/* 상단: 포트폴리오 요약 카드 + 일일 매매 실적 */}
+      <PortfolioSummary summary={summary} dailyPnl={dailyPnl} />
 
       {/* 하단: 차트 + 보유 코인 목록 */}
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
@@ -177,7 +181,11 @@ export function PortfolioContent() {
         />
 
         {/* 보유 코인 목록 테이블 */}
-        <HoldingList holdings={holdings} tickers={tickers ?? []} />
+        <HoldingList
+          holdings={holdings}
+          tickers={tickers ?? []}
+          totalAsset={summary.totalAsset}
+        />
       </div>
     </div>
   )

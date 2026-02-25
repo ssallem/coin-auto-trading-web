@@ -291,3 +291,106 @@ export async function cancelPendingOrder(
 
   return data as PendingOrderRow | null
 }
+
+// ─────────────────────────────────────────────
+// 일일 매매 손익 통계
+// ─────────────────────────────────────────────
+
+/** 일일 매매 손익 통계 타입 */
+export interface DailyPnlStats {
+  date: string
+  totalPnl: number
+  sellVolume: number
+  buyVolume: number
+  sellCount: number
+  buyCount: number
+  winCount: number
+  loseCount: number
+  winRate: number
+}
+
+/**
+ * 특정 날짜의 매매 손익 통계를 조회합니다.
+ *
+ * @param date - 조회할 날짜 (YYYY-MM-DD 형식)
+ * @param botId - 봇 식별자 (기본값: 'main')
+ * @returns 일일 손익 통계
+ */
+export async function getDailyPnlStats(
+  date: string,
+  botId: string = 'main'
+): Promise<DailyPnlStats> {
+  const supabase = getSupabaseClient()
+
+  // 날짜 범위 계산 (KST 기준 00:00:00 ~ 23:59:59.999)
+  // KST = UTC+9이므로 +09:00 타임존 사용
+  const startDate = `${date}T00:00:00+09:00`
+  // 다음날 00:00:00 직전까지
+  const nextDay = new Date(date)
+  nextDay.setDate(nextDay.getDate() + 1)
+  const nextDateStr = nextDay.toISOString().split('T')[0]
+  const endDate = `${nextDateStr}T00:00:00+09:00`
+
+  // order_history에서 해당 날짜의 모든 거래 조회
+  const { data, error } = await supabase
+    .from('order_history')
+    .select('side, amount, pnl')
+    .eq('bot_id', botId)
+    .gte('traded_at', startDate)
+    .lt('traded_at', endDate)
+
+  if (error) {
+    console.error('일일 손익 조회 실패:', error.message)
+    throw new Error(`일일 손익을 불러올 수 없습니다: ${error.message}`)
+  }
+
+  const orders = data ?? []
+
+  // 클라이언트에서 집계
+  let totalPnl = 0
+  let sellVolume = 0
+  let buyVolume = 0
+  let sellCount = 0
+  let buyCount = 0
+  let winCount = 0
+  let loseCount = 0
+
+  for (const order of orders) {
+    // 손익 합계
+    totalPnl += order.pnl
+
+    // 매수/매도 집계
+    if (order.side === 'bid') {
+      buyVolume += order.amount
+      buyCount++
+    } else if (order.side === 'ask') {
+      sellVolume += order.amount
+      sellCount++
+    }
+
+    // 승/패 집계 (매도 시에만 손익 발생)
+    if (order.side === 'ask') {
+      if (order.pnl > 0) {
+        winCount++
+      } else if (order.pnl < 0) {
+        loseCount++
+      }
+    }
+  }
+
+  // 승률 계산 (매도 거래 기준)
+  const totalSellTrades = winCount + loseCount
+  const winRate = totalSellTrades > 0 ? (winCount / totalSellTrades) * 100 : 0
+
+  return {
+    date,
+    totalPnl,
+    sellVolume,
+    buyVolume,
+    sellCount,
+    buyCount,
+    winCount,
+    loseCount,
+    winRate,
+  }
+}
