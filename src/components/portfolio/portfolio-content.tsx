@@ -16,6 +16,8 @@ import { useAccounts } from '@/hooks/use-accounts'
 import { useTicker } from '@/hooks/use-ticker'
 import { useUpbitWebSocket } from '@/hooks/use-upbit-websocket'
 import { useDailyPnl } from '@/hooks/use-daily-pnl'
+import { useRsi } from '@/hooks/use-rsi'
+import type { RsiData } from '@/hooks/use-rsi'
 import { CardSkeleton, TableSkeleton } from '@/components/common/loading-skeleton'
 import { PortfolioSummary } from '@/components/portfolio/portfolio-summary'
 import { HoldingList } from '@/components/portfolio/holding-list'
@@ -127,6 +129,9 @@ export function PortfolioContent() {
   /* 5. 일일 매매 손익 조회 (오늘 날짜) */
   const { data: dailyPnl } = useDailyPnl()
 
+  /* 5-1. 보유 코인 RSI 지표 조회 */
+  const { data: rsiData } = useRsi(marketCodes)
+
   /* 6. Holding 데이터 변환 */
   const holdings = useMemo<Holding[]>(() => {
     if (!accounts || !tickers) return []
@@ -185,6 +190,7 @@ export function PortfolioContent() {
           holdings={holdings}
           tickers={tickers ?? []}
           totalAsset={summary.totalAsset}
+          rsiData={rsiData ?? []}
         />
       </div>
     </div>

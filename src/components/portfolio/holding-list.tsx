@@ -18,8 +18,10 @@ import {
 } from '@/components/ui/table'
 import { PriceDisplay } from '@/components/common/price-display'
 import { PnlBadge } from '@/components/common/pnl-badge'
+import { Badge } from '@/components/ui/badge'
 import type { Holding } from '@/types/trading'
 import type { UpbitTicker } from '@/types/upbit'
+import type { RsiData } from '@/hooks/use-rsi'
 
 interface HoldingListProps {
   /** 보유 코인 목록 */
@@ -28,6 +30,8 @@ interface HoldingListProps {
   tickers: UpbitTicker[]
   /** 전체 자산 금액 (비중 계산용) */
   totalAsset: number
+  /** RSI 지표 데이터 */
+  rsiData: RsiData[]
 }
 
 /**
@@ -41,7 +45,39 @@ function getChange(
   return ticker?.change
 }
 
-export function HoldingList({ holdings, tickers, totalAsset }: HoldingListProps) {
+/** RSI 값에 따른 상태 뱃지를 반환합니다 */
+function RsiBadge({ rsi }: { rsi: number | null }) {
+  if (rsi === null) return <span className="text-muted-foreground text-xs">-</span>
+
+  let variant: 'default' | 'destructive' | 'secondary' = 'secondary'
+  let label = ''
+
+  if (rsi <= 30) {
+    variant = 'default'
+    label = '과매도'
+  } else if (rsi >= 70) {
+    variant = 'destructive'
+    label = '과매수'
+  } else {
+    label = '관망'
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="tabular-nums font-medium">{rsi.toFixed(1)}</span>
+      <Badge
+        variant={variant}
+        className={`text-[10px] px-1.5 py-0 ${
+          rsi <= 30 ? 'bg-blue-500 text-white hover:bg-blue-600' : ''
+        }`}
+      >
+        {label}
+      </Badge>
+    </div>
+  )
+}
+
+export function HoldingList({ holdings, tickers, totalAsset, rsiData }: HoldingListProps) {
   /* 보유 코인이 없는 경우 */
   if (holdings.length === 0) {
     return (
@@ -72,12 +108,14 @@ export function HoldingList({ holdings, tickers, totalAsset }: HoldingListProps)
             <TableHead className="text-right">손익</TableHead>
             <TableHead className="text-right">손익률</TableHead>
             <TableHead className="text-right">비중</TableHead>
+            <TableHead className="text-right">RSI</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {holdings.map((holding) => {
             const change = getChange(holding.market, tickers)
             const weight = totalAsset > 0 ? (holding.totalValue / totalAsset) * 100 : 0
+            const rsi = rsiData.find((r) => r.market === holding.market)?.rsi ?? null
 
             return (
               <TableRow key={holding.currency}>
@@ -137,6 +175,11 @@ export function HoldingList({ holdings, tickers, totalAsset }: HoldingListProps)
                 {/* 비중 */}
                 <TableCell className="text-right text-muted-foreground tabular-nums">
                   {weight.toFixed(1)}%
+                </TableCell>
+
+                {/* RSI */}
+                <TableCell className="text-right">
+                  <RsiBadge rsi={rsi} />
                 </TableCell>
               </TableRow>
             )

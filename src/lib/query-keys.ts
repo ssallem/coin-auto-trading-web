@@ -73,6 +73,14 @@ export const queryKeys = {
   /** 일일 손익 통계 키 */
   dailyPnl: (date: string) =>
     ['analytics', 'daily-pnl', date] as const,
+
+  // ─────────────────────────────────────────
+  // 지표 (Indicators)
+  // ─────────────────────────────────────────
+
+  /** RSI 지표 키 */
+  rsi: (markets: string[]) =>
+    ['indicators', 'rsi', ...markets.sort()] as const,
 }
 
 /**
@@ -127,5 +135,10 @@ export const QUERY_CONFIG = {
   /** 일일 손익 통계: 1분 신선 */
   dailyPnl: {
     staleTime: 60_000,
+  },
+  /** RSI 지표: 30초 신선, 60초 갱신 */
+  rsi: {
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   },
 } as const
