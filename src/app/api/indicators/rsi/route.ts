@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'edge'
 
 const UPBIT_API_BASE = 'https://api.upbit.com'
+const BATCH_DELAY_MS = 400
 
 interface RsiResult {
   market: string
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
     // 각 마켓별로 캔들 데이터를 배치 처리하여 RSI 계산 (타임아웃 방지)
     const count = period + 10 // 충분한 데이터
     const results: RsiResult[] = []
-    const BATCH_SIZE = 5
+    const BATCH_SIZE = 3
 
     for (let i = 0; i < markets.length; i += BATCH_SIZE) {
       const batch = markets.slice(i, i + BATCH_SIZE)
@@ -87,15 +88,25 @@ export async function GET(request: NextRequest) {
               { headers: { 'Content-Type': 'application/json' } },
             )
 
-            if (!res.ok) return { market, rsi: null }
+            if (!res.ok) {
+              console.error(`[RSI API] Upbit API 실패: ${market}, status: ${res.status}`)
+              return { market, rsi: null }
+            }
 
             const candles = await res.json() as { trade_price: number }[]
+
+            if (!Array.isArray(candles) || candles.length === 0) {
+              console.error(`[RSI API] ${market} 캔들 데이터 없음`)
+              return { market, rsi: null }
+            }
+
             // Upbit 캔들은 최신순이므로 역순으로 정렬 (오래된 것 먼저)
             const closePrices = candles.map((c) => c.trade_price).reverse()
             const rsi = calculateRSI(closePrices, period)
 
             return { market, rsi: rsi !== null ? Math.round(rsi * 10) / 10 : null }
-          } catch {
+          } catch (error) {
+            console.error(`[RSI API] ${market} 처리 실패:`, error instanceof Error ? error.message : error)
             return { market, rsi: null }
           }
         }),
@@ -104,7 +115,7 @@ export async function GET(request: NextRequest) {
 
       // 배치 사이 딜레이 (Upbit rate limit 준수)
       if (i + BATCH_SIZE < markets.length) {
-        await new Promise((resolve) => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS))
       }
     }
 

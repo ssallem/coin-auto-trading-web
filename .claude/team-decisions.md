@@ -587,6 +587,155 @@
 - src/hooks/use-ticker.ts (retry 옵션 추가)
 - Supabase bot_config.trading.markets (3개→30개)
 
+## 미션 10: 로스 카메론 복합 전략 구현 (2026-02-25)
+- 원본 요청: 유튜브 영상 기반 로스 카메론 RSI+볼린저+MACD 복합 전략 적용
+- 시작 시각: 2026-02-25
+- 핵심 목표: Python 봇에 로스 카메론의 다중 지표 전략 구현
+
+### 로스 카메론 전략 요약 (영상 분석)
+
+**전략 A: RSI + 볼린저 밴드 + 반전 캔들**
+매수 조건 (4단계):
+1. RSI ≤ 30 (과매도 확인 = 필터)
+2. 연속 음봉이 볼린저 밴드 하단을 터치/이탈
+3. 장악형 양봉 등장 (직전 음봉을 완전히 덮음)
+4. 쌍바닥 형성: 두 번째 바닥이 반드시 볼린저 밴드 안에서 형성
+→ 두 번째 양봉 종가에서 매수 진입
+→ 손절: 밴드 하단선, 익절: 손익비 1:2
+
+매도 조건 (4단계):
+1. RSI ≥ 70 (과매수 확인 = 필터)
+2. 양봉이 볼린저 밴드 상단을 터치/이탈
+3. 하락 장악형 음봉 등장
+4. 쌍봉 형성: 두 번째 고점이 밴드 안에서 형성
+→ 음봉 종가에서 매도
+→ 손절: 단기 고점, 익절: 손익비 1:1
+
+**전략 B: RSI 다이버전스 + MACD**
+매수 조건:
+1. 상승 다이버전스: 가격 저점 하락 vs RSI 저점 상승
+2. MACD 골든 크로스 (MACD선이 시그널선 상향 돌파)
+3. 장악형 양봉 확인
+→ 양봉 종가에서 매수, 손절: 전저점, 익절: 손익비 1:2
+
+매도 조건:
+1. 하락 다이버전스: 가격 고점 상승 vs RSI 고점 하락
+2. MACD 데드 크로스
+3. 장악형 음봉 확인
+→ 음봉 종가에서 매도, 손절: 직전 고점, 익절: 손익비 1:1
+
+**핵심 원칙:**
+- RSI 50 근처 횡보 종목은 무시 (변동성 부족)
+- RSI는 필터 용도만 (진입 신호가 아님)
+- 3가지 조건 모두 충족 시에만 진입
+- 리스크 관리 필수
+
+## 작업 분석
+- 작업 유형: 신규 개발 (전략 엔진 확장)
+- 복잡도: 복잡
+- 팀 구성: explorer(2) → architect(1) → coder(3~4) → critic(1)
+
+### 탐색 결과 요약
+
+**전략 아키텍처:**
+- BaseStrategy(ABC) → analyze(market, df, price) → SignalResult(signal, confidence, reason, metadata)
+- 엔진은 단일 전략만 지원: self._strategy (1개만)
+- 현재 3개: RSI, MA Cross, Bollinger
+- _select_strategy() 에서 이름으로 생성, set_strategy()로 런타임 교체 가능
+
+**기존 지표 (indicators.py - 모두 구현됨):**
+- RSI: `rsi` 컬럼
+- 볼린저: `bb_upper`, `bb_middle`, `bb_lower` 컬럼
+- MACD: `macd`, `macd_signal`, `macd_hist` 컬럼
+- SMA/EMA: `sma_short`, `sma_long`, `ema_short`, `ema_long`
+- add_all_indicators()로 일괄 추가
+
+**미구현 (신규 필요):**
+- 캔들 패턴 감지 (장악형, 쌍바닥/쌍봉) → data/patterns.py
+- RSI 다이버전스 감지 → data/divergence.py
+- 복합 전략 클래스 → strategies/ross_cameron_strategy.py
+- 손익비 기반 포지션 관리
+
+**확장 포인트:**
+- strategies/ 디렉토리에 새 전략 클래스 추가
+- engine.py _select_strategy()에 케이스 추가
+- settings.py StrategyConfig에 설정 추가
+
+### 설계 결정
+- 전략 A+B를 단일 클래스(RossCameronStrategy)로 통합
+- 캔들 패턴 유틸 → utils/candle_patterns.py (분리)
+- 다이버전스 유틸 → utils/divergence_detector.py (분리)
+- 기존 BaseStrategy 인터페이스 그대로 사용
+- analyze()에서 A/B 각각 체크 → OR 결합 → 확신도 합산
+- 손절/익절을 metadata에 포함하여 risk_manager에 전달
+
+### 파일 계획
+신규:
+1. strategies/ross_cameron_strategy.py (메인 전략)
+2. utils/candle_patterns.py (장악형, 쌍바닥/쌍봉, 연속음봉/양봉, 밴드터치)
+3. utils/divergence_detector.py (다이버전스, MACD 크로스)
+
+수정:
+4. config/settings.py (RossCameronStrategyConfig 추가)
+5. config/config.yaml (ross_cameron 섹션)
+6. trading/engine.py (_select_strategy에 ross_cameron 케이스)
+
+### 구현 라운드
+R1: utils/candle_patterns.py (기본 패턴)
+R2: utils/divergence_detector.py + candle_patterns 고급 패턴
+R3: strategies/ross_cameron_strategy.py (전체 로직)
+R4: config/settings.py + config.yaml + engine.py (설정 통합)
+
+## 미션 10 완료 (2026-02-25)
+- Python 봇에 로스 카메론 전략 구현 + 배포 완료
+- 커밋: 89ce41d (전략 구현) + a11bde6 (main.py 팩토리 수정)
+- Supabase strategy.active → "ross_cameron" 업데이트 완료
+- 봇 재시작 확인 (TOP 30 코인 스캔 + ross_cameron 전략)
+
+## 미션 11: 매수후보 페이지 오류 수정 (2026-02-25)
+- 원본 요청: "여전히 매수후보 탭 페이지는 오류가 나서 안보이네.."
+- 시작 시각: 2026-02-25 23:40
+- 핵심 목표: /candidates 페이지가 여전히 에러 표시되고 있음 → 원인 분석 + 수정
+
+## 미션 11 작업 분석
+- 작업 유형: 버그 수정
+- 복잡도: 보통
+- 팀 구성: explorer(2, 병렬) → coder(1) → critic(1)
+
+### 미션 11 탐색 결과
+
+**[Explorer 1: API 코드 분석]**
+- PRIMARY (95%): RSI API 배치 설정이 Upbit Rate Limit(10 req/s) 초과
+  - BATCH_SIZE=5, delay=100ms → 1초당 15~20개 요청 → 429 에러
+  - 30개 코인 = 6배치, t=0.3s에 이미 20개 요청 발생
+  - 429 에러가 { rsi: null }로 무음 처리 → 전체 데이터 없는 것처럼 보임
+- SECONDARY: retry:2 + 배치 전체 재실행 → Edge Runtime 10초 타임아웃 초과 가능
+  - 총 소요: 6초 + 2초 대기 + 6초 = 14초 > 10초 제한
+- /api/ticker, /api/markets: 문제 없음 (단일 요청)
+
+**수정 제안:**
+1. BATCH_SIZE 5→3, delay 100ms→350ms (5 req/s로 안전 마진)
+2. 429 에러 로깅 추가
+3. retry: 2→1 (rate limit 재시도 무의미)
+
+**[Explorer 2: 배포 상태]**
+- 빌드: 성공 (29.2초, 에러 없음)
+- Vercel: CLI 설치됨(v50.23.2), 로컬 .vercel 폴더 없음
+- 환경변수: .env/.env.local 파일 존재하지 않음 (Vercel 대시보드에만 설정)
+- 미션 9 커밋(99b6832) push 완료 → 자동 배포 트리거됨
+- 웹 배포 자체는 정상 (코드는 Vercel에 배포됨)
+
+### 미션 11 검토 결과
+- 빌드: 성공 (타입 에러 없음)
+- CRITICAL 4건:
+  - C-1: BATCH_DELAY 350→400ms (Rate Limit 안전 마진 확보)
+  - C-2: catch 블록에 에러 로깅 누락
+  - C-3: 캔들 데이터 빈 배열 검증 없음
+  - C-4: delay를 상수로 분리 (BATCH_DELAY_MS)
+- WARNING 2건:
+  - W-1: retryDelay RSI(3s)/Ticker(2s) 불일치 → 통일
+  - W-2: jitter 없는 고정 딜레이 → retry storm 위험
+
 ## 남은 작업
 - E2E 테스트
 - 다크/라이트 모드 토글 UI
