@@ -49,7 +49,7 @@ interface RiskSectionProps {
 
 const DEFAULT_VALUES: RiskConfigInput = {
   stop_loss_pct: 3,
-  take_profit_pct: 5,
+  take_profit_pct: 999,
   trailing_stop: { enabled: true, pct: 2.0 },
   max_daily_loss: 50_000,
   max_positions: 10,
@@ -143,7 +143,7 @@ export function RiskSection({ data, onSave, isSaving }: RiskSectionProps) {
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                매수가 대비 이 비율만큼 상승 시 자동 익절
+                매수가 대비 이 비율만큼 상승 시 자동 익절 (999 = 비활성화, 트레일링 스탑만 사용)
               </p>
             </div>
           </div>

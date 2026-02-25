@@ -8,7 +8,7 @@
  * 반응형: 데스크탑 나란히, 모바일 탭 전환
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { queryKeys, QUERY_CONFIG } from '@/lib/query-keys'
@@ -58,10 +58,14 @@ export function TradeContent() {
     staleTime: QUERY_CONFIG.markets.staleTime,
   })
 
-  /* KRW 마켓 중 유명 30개만 필터링 + 이름순 정렬 */
-  const krwMarkets = (markets
-    ?.filter((m) => m.market.startsWith('KRW-') && TOP_30_SYMBOLS.has(m.market.replace('KRW-', '')))
-    .sort((a, b) => a.korean_name.localeCompare(b.korean_name, 'ko')) ?? [])
+  /* KRW 마켓 중 유명 30개만 필터링 + 이름순 정렬 (메모이제이션으로 스크롤 리셋 방지) */
+  const krwMarkets = useMemo(
+    () =>
+      markets
+        ?.filter((m) => m.market.startsWith('KRW-') && TOP_30_SYMBOLS.has(m.market.replace('KRW-', '')))
+        .sort((a, b) => a.korean_name.localeCompare(b.korean_name, 'ko')) ?? [],
+    [markets],
+  )
 
   /* selectedMarket 동기화: krwMarkets 로드 후 목록에 없으면 첫 번째 마켓으로 설정 */
   useEffect(() => {

@@ -8,6 +8,7 @@
  * - 현재가/변동률 표시
  */
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -26,6 +27,16 @@ import {
 } from '@/components/ui/select'
 import type { UpbitMarket, CandleInterval } from '@/types/upbit'
 import { cn } from '@/lib/utils'
+
+/** 유명 코인 30개 (KRW 마켓 심볼) */
+const TOP_30_SYMBOLS = new Set([
+  'BTC', 'ETH', 'XRP', 'SOL', 'DOGE',
+  'ADA', 'AVAX', 'LINK', 'DOT', 'MATIC',
+  'TRX', 'ATOM', 'ETC', 'XLM', 'ALGO',
+  'NEAR', 'ICP', 'APT', 'ARB', 'OP',
+  'SAND', 'MANA', 'AXS', 'HBAR', 'EOS',
+  'BTT', 'SUI', 'SEI', 'STX', 'USDC',
+])
 
 /** 인터벌 옵션 목록 */
 const INTERVAL_OPTIONS: { value: CandleInterval; label: string }[] = [
@@ -57,8 +68,14 @@ export function ChartToolbar() {
     staleTime: QUERY_CONFIG.markets.staleTime,
   })
 
-  /** KRW 마켓만 필터링 */
-  const krwMarkets = markets?.filter((m) => m.market.startsWith('KRW-')) ?? []
+  /** KRW 마켓 중 유명 30개만 필터링 + 이름순 정렬 (메모이제이션으로 스크롤 리셋 방지) */
+  const krwMarkets = useMemo(
+    () =>
+      markets
+        ?.filter((m) => m.market.startsWith('KRW-') && TOP_30_SYMBOLS.has(m.market.replace('KRW-', '')))
+        .sort((a, b) => a.korean_name.localeCompare(b.korean_name, 'ko')) ?? [],
+    [markets],
+  )
 
   /** 현재가 조회 */
   const { data: tickerData } = useTicker([selectedMarket])

@@ -126,11 +126,11 @@ export const RiskConfigSchema = z.object({
     .min(0, '손절 비율은 0 이상이어야 합니다')
     .max(50, '손절 비율은 50 이하여야 합니다'),
 
-  /** 익절 비율 (0~100%) */
+  /** 익절 비율 (0~999%, 999=비활성화) */
   take_profit_pct: z
     .number()
     .min(0, '익절 비율은 0 이상이어야 합니다')
-    .max(100, '익절 비율은 100 이하여야 합니다'),
+    .max(999, '익절 비율은 999 이하여야 합니다'),
 
   /** 트레일링 스탑 설정 */
   trailing_stop: TrailingStopSchema,

@@ -78,8 +78,8 @@ const DEFAULT_STRATEGY: StrategyConfigInput = {
 
 const DEFAULT_RISK: RiskConfig = {
   stop_loss_pct: 3,
-  take_profit_pct: 5,
-  trailing_stop: { enabled: false, pct: 2 },
+  take_profit_pct: 999,
+  trailing_stop: { enabled: true, pct: 2 },
   max_daily_loss: 100_000,
   max_positions: 5,
 }
@@ -387,7 +387,7 @@ export function StrategyContent() {
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                매수가 대비 이 비율만큼 상승 시 자동 익절
+                매수가 대비 이 비율만큼 상승 시 자동 익절 (999 = 비활성화, 트레일링 스탑만 사용)
               </p>
             </div>
           </div>
