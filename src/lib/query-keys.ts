@@ -81,6 +81,10 @@ export const queryKeys = {
   /** RSI 지표 키 */
   rsi: (markets: string[]) =>
     ['indicators', 'rsi', ...markets.sort()] as const,
+
+  /** 매수 후보 키 (Supabase buy_candidates 테이블) */
+  buyCandidates: () =>
+    ['buy-candidates'] as const,
 }
 
 /**
@@ -138,6 +142,11 @@ export const QUERY_CONFIG = {
   },
   /** RSI 지표: 30초 신선, 60초 갱신 */
   rsi: {
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  },
+  /** 매수 후보: 30초 신선, 60초 갱신 */
+  buyCandidates: {
     staleTime: 30_000,
     refetchInterval: 60_000,
   },

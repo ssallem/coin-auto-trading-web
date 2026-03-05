@@ -1,127 +1,61 @@
 /**
- * RSI 지표 조회 API
+ * 매수 후보 조회 API (Supabase buy_candidates 테이블에서 조회)
  *
- * GET /api/indicators/rsi?markets=KRW-BTC,KRW-ETH&period=14&unit=15
- * → 각 마켓의 현재 RSI 값을 계산하여 반환
+ * GET /api/indicators/rsi?markets=KRW-BTC,KRW-ETH
+ * → Python 봇이 분석한 매수 후보 데이터를 Supabase에서 가져옵니다.
  *
- * Upbit 캔들 API에서 데이터를 가져와 서버에서 RSI를 계산합니다.
+ * 기존: Upbit API를 직접 호출하여 RSI 계산 (Rate Limit 문제)
+ * 개선: Supabase buy_candidates 테이블에서 Python 봇이 분석한 결과 조회
+ *
+ * 쿼리 파라미터:
+ * - markets: 조회할 마켓 코드 (쉼표 구분, 예: "KRW-BTC,KRW-ETH")
+ *            전달되지 않으면 전체 매수 후보 반환
+ * - period, unit: 현재는 무시 (Python 봇이 미리 계산한 값 사용)
  */
 import { NextRequest, NextResponse } from 'next/server'
-
-export const runtime = 'edge'
-
-const UPBIT_API_BASE = 'https://api.upbit.com'
-const BATCH_DELAY_MS = 400
+import { getBuyCandidates } from '@/lib/supabase'
 
 interface RsiResult {
   market: string
   rsi: number | null
 }
 
-/**
- * Wilder's RSI 계산 (period 기간의 평균 상승/하락폭 기반)
- */
-function calculateRSI(closePrices: number[], period: number): number | null {
-  if (closePrices.length < period + 1) return null
-
-  let avgGain = 0
-  let avgLoss = 0
-
-  // 초기 평균 (첫 period 기간)
-  for (let i = 1; i <= period; i++) {
-    const change = closePrices[i] - closePrices[i - 1]
-    if (change > 0) avgGain += change
-    else avgLoss += Math.abs(change)
-  }
-  avgGain /= period
-  avgLoss /= period
-
-  // Wilder's smoothing (나머지 데이터)
-  for (let i = period + 1; i < closePrices.length; i++) {
-    const change = closePrices[i] - closePrices[i - 1]
-    const gain = change > 0 ? change : 0
-    const loss = change < 0 ? Math.abs(change) : 0
-    avgGain = (avgGain * (period - 1) + gain) / period
-    avgLoss = (avgLoss * (period - 1) + loss) / period
-  }
-
-  if (avgLoss === 0) return 100
-  const rs = avgGain / avgLoss
-  return 100 - 100 / (1 + rs)
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const marketsStr = searchParams.get('markets')
-    const periodStr = searchParams.get('period') ?? '14'
-    const unitStr = searchParams.get('unit') ?? '15'
+    // 쿼리 파라미터 파싱
+    const searchParams = request.nextUrl.searchParams
+    const marketsParam = searchParams.get('markets')
 
-    if (!marketsStr) {
-      return NextResponse.json(
-        { error: 'markets 파라미터가 필요합니다 (예: KRW-BTC,KRW-ETH)' },
-        { status: 400 },
-      )
-    }
+    // markets 파라미터가 있으면 배열로 변환
+    const requestedMarkets = marketsParam
+      ? marketsParam.split(',').map(m => m.trim())
+      : null
 
-    const markets = marketsStr.split(',').map((m) => m.trim()).filter(Boolean)
-    const period = parseInt(periodStr, 10)
-    const unit = parseInt(unitStr, 10)
+    // Supabase에서 매수 후보 데이터 조회
+    const candidates = await getBuyCandidates('main')
 
-    if (isNaN(period) || period < 2 || period > 50) {
-      return NextResponse.json({ error: 'period는 2~50 사이 정수여야 합니다' }, { status: 400 })
-    }
+    // 기존 API 응답 형식에 맞게 변환
+    // candidates-content.tsx가 기대하는 { market, rsi }[] 형식 유지
+    let results: RsiResult[] = candidates.map((candidate) => ({
+      market: candidate.market,
+      rsi: candidate.rsi,
+    }))
 
-    // 각 마켓별로 캔들 데이터를 배치 처리하여 RSI 계산 (타임아웃 방지)
-    const count = period + 10 // 충분한 데이터
-    const results: RsiResult[] = []
-    const BATCH_SIZE = 3
-
-    for (let i = 0; i < markets.length; i += BATCH_SIZE) {
-      const batch = markets.slice(i, i + BATCH_SIZE)
-      const batchResults = await Promise.all(
-        batch.map(async (market) => {
-          try {
-            const params = new URLSearchParams({ market, count: String(count) })
-            const res = await fetch(
-              `${UPBIT_API_BASE}/v1/candles/minutes/${unit}?${params.toString()}`,
-              { headers: { 'Content-Type': 'application/json' } },
-            )
-
-            if (!res.ok) {
-              console.error(`[RSI API] Upbit API 실패: ${market}, status: ${res.status}`)
-              return { market, rsi: null }
-            }
-
-            const candles = await res.json() as { trade_price: number }[]
-
-            if (!Array.isArray(candles) || candles.length === 0) {
-              console.error(`[RSI API] ${market} 캔들 데이터 없음`)
-              return { market, rsi: null }
-            }
-
-            // Upbit 캔들은 최신순이므로 역순으로 정렬 (오래된 것 먼저)
-            const closePrices = candles.map((c) => c.trade_price).reverse()
-            const rsi = calculateRSI(closePrices, period)
-
-            return { market, rsi: rsi !== null ? Math.round(rsi * 10) / 10 : null }
-          } catch (error) {
-            console.error(`[RSI API] ${market} 처리 실패:`, error instanceof Error ? error.message : error)
-            return { market, rsi: null }
-          }
-        }),
-      )
-      results.push(...batchResults)
-
-      // 배치 사이 딜레이 (Upbit rate limit 준수)
-      if (i + BATCH_SIZE < markets.length) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS))
-      }
+    // markets 파라미터가 전달된 경우, 해당 마켓만 필터링 (하위 호환성)
+    if (requestedMarkets) {
+      const marketSet = new Set(requestedMarkets)
+      results = results.filter((r) => marketSet.has(r.market))
     }
 
     return NextResponse.json(results)
   } catch (error) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[RSI API] Supabase 조회 실패:', message)
+
+    // 에러 발생 시 HTTP 500으로 에러 응답 반환 (프론트엔드에서 에러 감지 가능)
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    )
   }
 }

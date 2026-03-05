@@ -15,6 +15,7 @@ import type {
   AccountSnapshotRow,
   OrderHistoryRow,
   PendingOrderRow,
+  BuyCandidateRow,
 } from '@/types/supabase'
 
 // ─────────────────────────────────────────────
@@ -393,4 +394,34 @@ export async function getDailyPnlStats(
     loseCount,
     winRate,
   }
+}
+
+// ─────────────────────────────────────────────
+// buy_candidates 조회
+// ─────────────────────────────────────────────
+
+/**
+ * 매수 후보 목록을 조회합니다.
+ * Python 봇이 분석한 최신 매수 후보 데이터를 가져옵니다.
+ *
+ * @param botId - 봇 식별자 (기본값: 'main')
+ * @returns 매수 후보 배열
+ */
+export async function getBuyCandidates(
+  botId: string = 'main'
+): Promise<BuyCandidateRow[]> {
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('buy_candidates')
+    .select('*')
+    .eq('bot_id', botId)
+    .order('confidence', { ascending: false })
+
+  if (error) {
+    console.error('buy_candidates 조회 실패:', error.message)
+    throw new Error(`매수 후보를 불러올 수 없습니다: ${error.message}`)
+  }
+
+  return (data ?? []) as BuyCandidateRow[]
 }

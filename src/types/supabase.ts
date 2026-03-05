@@ -76,3 +76,22 @@ export interface PendingOrderRow {
   processed_at: string | null
   bot_id: string
 }
+
+// ─────────────────────────────────────────────
+// buy_candidates
+// ─────────────────────────────────────────────
+
+/** 매수 후보 Row (봇의 전략 분석 결과) */
+export interface BuyCandidateRow {
+  id: number
+  bot_id: string
+  market: string
+  signal: 'BUY' | 'SELL' | 'HOLD'
+  confidence: number
+  reason: string
+  current_price: number
+  rsi: number | null
+  indicators: Record<string, any>
+  analyzed_at: string
+  created_at: string
+}
