@@ -44,7 +44,22 @@ function formatDate(dateStr: string): string {
 
 /** KRW 금액 포맷 */
 function formatKRW(value: number): string {
-  return new Intl.NumberFormat('ko-KR').format(Math.floor(value))
+  const sign = value < 0 ? '-' : ''
+  return sign + new Intl.NumberFormat('ko-KR').format(Math.floor(Math.abs(value)))
+}
+
+/** 손익 금액 포맷 (부호 포함) */
+function formatPnl(value: number | undefined): string {
+  if (value === undefined || isNaN(value)) return '-'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${formatKRW(value)}`
+}
+
+/** 손익률 포맷 (부호 포함) */
+function formatPnlPct(value: number | undefined): string {
+  if (value === undefined || isNaN(value)) return '-'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(2)}%`
 }
 
 /** 전체 마켓 옵션 */
@@ -92,7 +107,7 @@ export default function HistoryPage() {
         </CardHeader>
         <CardContent>
           {/* 로딩 상태 */}
-          {isLoading && <TableSkeleton rows={5} columns={6} />}
+          {isLoading && <TableSkeleton rows={5} columns={8} />}
 
           {/* 빈 상태 */}
           {!isLoading && filteredOrders.length === 0 && (
@@ -115,6 +130,7 @@ export default function HistoryPage() {
                       <TableHead className="text-right">체결가</TableHead>
                       <TableHead className="text-right">체결수량</TableHead>
                       <TableHead className="text-right">체결금액</TableHead>
+                      <TableHead className="text-right">손익</TableHead>
                       <TableHead className="text-right">수수료</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -125,6 +141,8 @@ export default function HistoryPage() {
                       const price = order.price ? parseFloat(order.price) : 0
                       const fee = parseFloat(order.paid_fee || '0')
                       const isMarketOrder = order.ord_type === 'price' || order.ord_type === 'market'
+                      const pnl = order.pnl ?? 0
+                      const pnlPct = order.pnl_pct ?? 0
 
                       /* 체결금액 계산: 시장가 주문은 price가 null일 수 있으므로 수수료 기반 추정 */
                       let executedAmount = price * executedVolume
@@ -179,6 +197,18 @@ export default function HistoryPage() {
                             {executedAmount > 0 ? `${isMarketOrder && price === 0 ? '~' : ''}${formatKRW(executedAmount)}` : '-'}
                           </TableCell>
 
+                          {/* 손익 */}
+                          <TableCell className="text-right tabular-nums">
+                            {!isBid ? (
+                              <div className={pnl === 0 ? 'text-muted-foreground' : pnl > 0 ? 'text-blue-500' : 'text-red-500'}>
+                                <div className="font-medium">{formatPnl(pnl)}</div>
+                                <div className="text-xs">{formatPnlPct(pnlPct)}</div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+
                           {/* 수수료 */}
                           <TableCell className="text-muted-foreground text-right tabular-nums text-xs">
                             {fee > 0 ? formatKRW(fee) : '0'}
@@ -198,6 +228,8 @@ export default function HistoryPage() {
                   const price = order.price ? parseFloat(order.price) : 0
                   const fee = parseFloat(order.paid_fee || '0')
                   const isMarketOrder = order.ord_type === 'price' || order.ord_type === 'market'
+                  const pnl = order.pnl ?? 0
+                  const pnlPct = order.pnl_pct ?? 0
 
                   /* 체결금액 계산: 시장가 주문은 price가 null일 수 있으므로 수수료 기반 추정 */
                   let executedAmount = price * executedVolume
@@ -257,6 +289,17 @@ export default function HistoryPage() {
                             {executedAmount > 0 ? `${isMarketOrder && price === 0 ? '~' : ''}${formatKRW(executedAmount)}` : '-'}
                           </p>
                         </div>
+                        {!isBid ? (
+                          <div>
+                            <span className="text-muted-foreground text-xs">손익</span>
+                            <p
+                              className={`tabular-nums font-medium ${pnl === 0 ? 'text-muted-foreground' : pnl > 0 ? 'text-blue-500' : 'text-red-500'}`}
+                            >
+                              {formatPnl(pnl)}
+                              <span className="ml-1 text-xs">({formatPnlPct(pnlPct)})</span>
+                            </p>
+                          </div>
+                        ) : null}
                         <div>
                           <span className="text-muted-foreground text-xs">수수료</span>
                           <p className="text-muted-foreground tabular-nums">

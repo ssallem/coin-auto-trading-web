@@ -161,6 +161,10 @@ export interface UpbitOrder {
   paid_fee: string
   /** 묶여 있는 비용 */
   locked: string
+  /** 손익 금액 (원) */
+  pnl?: number
+  /** 손익률 (%) */
+  pnl_pct?: number
 }
 
 /** 주문 생성 요청 파라미터 */

@@ -65,6 +65,8 @@ function toUpbitOrder(row: OrderHistoryRow): UpbitOrder {
     trades_count: 1,
     paid_fee: '0',
     locked: '0',
+    pnl: row.pnl ?? 0,
+    pnl_pct: row.pnl_pct ?? 0,
   }
 }
 

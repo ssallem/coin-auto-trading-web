@@ -725,6 +725,15 @@ R4: config/settings.py + config.yaml + engine.py (설정 통합)
 - 미션 9 커밋(99b6832) push 완료 → 자동 배포 트리거됨
 - 웹 배포 자체는 정상 (코드는 Vercel에 배포됨)
 
+### 미션 11 완료
+- 커밋: 7d26edc - fix: 매수후보 페이지 RSI API Rate Limit 초과 수정
+- Push + Vercel 자동 배포 트리거됨
+
+### 미션 11 변경 파일
+- src/app/api/indicators/rsi/route.ts (BATCH_SIZE 3, delay 400ms, 에러 로깅, 빈 배열 검증)
+- src/hooks/use-rsi.ts (retry 1, retryDelay 2000+jitter)
+- src/hooks/use-ticker.ts (retry 1, retryDelay 2000+jitter)
+
 ### 미션 11 검토 결과
 - 빌드: 성공 (타입 에러 없음)
 - CRITICAL 4건:
@@ -735,6 +744,65 @@ R4: config/settings.py + config.yaml + engine.py (설정 통합)
 - WARNING 2건:
   - W-1: retryDelay RSI(3s)/Ticker(2s) 불일치 → 통일
   - W-2: jitter 없는 고정 딜레이 → retry storm 위험
+
+## 미션 12: 거래내역 손익 표시 + 자동매매 상태 확인 (2026-03-05)
+- 원본 요청: "거래내역 페이지에서 매매손익율이랑 금액이 있어야 얼마의 차익인지 알아보기가 쉬울것 같아. 그리고 현재 자동매매 서비스가 제대로 구동 중인지도 확인해줘. 어제 이후로 거래가 없어.."
+- 시작 시각: 2026-03-05 09:15
+- 핵심 목표:
+  1. 거래내역 페이지에 매수/매도 쌍 매칭하여 손익률(%)과 손익금액(원) 표시
+  2. 자동매매 봇 서비스 구동 상태 확인 (어제 이후 거래 없음)
+- 작업 유형: UI 기능 추가 + 조사/분석
+- 복잡도: 보통
+- 팀 구성: explorer(2) → architect(1) → coder(1~2) → critic(1)
+
+### 미션 12 탐색 결과
+
+**[봇 상태: 정상 작동 중 ✅]**
+- Python 봇 PID 9784, 실시간 작동 중
+- 오늘 아침 거래 2건: ETH 매도(+22,493원, +5.85%), BTC 매도(+20,959원, +8.86%)
+- 어제 이후 거래 없던 이유: 시장 변동성 부족, RSI 40-60 중립 구간 → 정상 관망
+- 오늘 총 수익: +43,452원
+
+**[거래내역 페이지 구조]**
+- 파일: src/app/(dashboard)/history/page.tsx (278줄, 인라인)
+- 데이터 흐름: page.tsx → useOrders() → GET /api/orders → getOrderHistory() → Supabase order_history
+- **pnl/pnl_pct 컬럼: Supabase에 이미 존재** ✅
+- **문제점**: toUpbitOrder() 변환 시 pnl/pnl_pct 제외 + UpbitOrder 타입에 필드 없음 + UI 미표시
+- 수정 포인트 3곳: types/upbit.ts → api/orders/route.ts → history/page.tsx
+- 기존 PnlBadge 컴포넌트 활용 가능
+
+### 미션 12 설계
+- 단순 데이터 파이프라인 연결 작업 (설계 생략, 바로 구현)
+- Task A: UpbitOrder 타입에 pnl/pnl_pct 추가 + toUpbitOrder() 매핑 추가
+- Task B: history/page.tsx UI에 손익 컬럼 추가 (테이블 + 모바일 카드)
+  - 매도(ask): pnl 금액 + pnl_pct% 표시 (양수=파랑, 음수=빨강)
+  - 매수(bid): '-' 표시
+  - 기존 PnlBadge 컴포넌트 활용
+
+### 미션 12 구현 완료 (1차)
+- types/upbit.ts: UpbitOrder에 pnl?, pnl_pct? 추가
+- api/orders/route.ts: toUpbitOrder()에 pnl/pnl_pct 매핑
+- history/page.tsx: 데스크탑 테이블 + 모바일 카드에 손익 컬럼 추가
+
+### 미션 12 검토 결과
+- CRITICAL 2건:
+  - C-1: route.ts `pnl || 0` → 0값도 falsy로 덮어쓰기 → `row.pnl` 직접 사용으로 수정
+  - C-2: supabase.ts pnl 타입 NOT NULL이지만 DB에 null 가능성 → `?? 0` 방어 추가
+- WARNING 4건:
+  - W-1: 스켈레톤 columns 6→8 불일치
+  - W-2: 손익 0원 매도 표시 누락
+  - W-3: formatPnl/formatPnlPct undefined/NaN 방어 미흡
+  - W-4: formatKRW 음수 Math.floor 이슈
+- SUGGESTION 2건: 색상 관례, 모바일 grid 불균형
+
+### 미션 12 변경 파일
+- src/types/upbit.ts (수정 - pnl?, pnl_pct? 필드 추가)
+- src/types/supabase.ts (수정 - pnl, pnl_pct를 number | null로 변경)
+- src/app/api/orders/route.ts (수정 - toUpbitOrder에 pnl/pnl_pct 매핑, ?? 연산자)
+- src/app/(dashboard)/history/page.tsx (수정 - 손익 컬럼 추가, formatPnl/formatPnlPct 함수)
+
+### 미션 12 빌드 검증
+- tsc --noEmit: 통과 ✅
 
 ## 남은 작업
 - E2E 테스트

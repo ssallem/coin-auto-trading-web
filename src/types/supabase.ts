@@ -45,8 +45,8 @@ export interface OrderHistoryRow {
   price: number | null
   volume: number | null
   amount: number
-  pnl: number
-  pnl_pct: number
+  pnl: number | null
+  pnl_pct: number | null
   signal_reason: string
   state: string
   source: 'bot' | 'web'
