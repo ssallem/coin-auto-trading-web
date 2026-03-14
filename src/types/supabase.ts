@@ -78,6 +78,18 @@ export interface PendingOrderRow {
 }
 
 // ─────────────────────────────────────────────
+// coin_locks
+// ─────────────────────────────────────────────
+
+/** 코인 잠금 Row (잠금된 코인은 봇이 자동 매도하지 않음) */
+export interface CoinLockRow {
+  market: string
+  is_locked: boolean
+  locked_at: string | null
+  updated_at: string
+}
+
+// ─────────────────────────────────────────────
 // buy_candidates
 // ─────────────────────────────────────────────
 

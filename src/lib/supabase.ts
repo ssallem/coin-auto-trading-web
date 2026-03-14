@@ -16,6 +16,7 @@ import type {
   OrderHistoryRow,
   PendingOrderRow,
   BuyCandidateRow,
+  CoinLockRow,
 } from '@/types/supabase'
 
 // ─────────────────────────────────────────────
@@ -424,4 +425,65 @@ export async function getBuyCandidates(
   }
 
   return (data ?? []) as BuyCandidateRow[]
+}
+
+// ─────────────────────────────────────────────
+// coin_locks 조회/토글
+// ─────────────────────────────────────────────
+
+/**
+ * 코인 잠금 목록을 조회합니다.
+ *
+ * @returns 잠금 상태 배열
+ */
+export async function getCoinLocks(): Promise<CoinLockRow[]> {
+  const supabase = getSupabaseClient()
+
+  const { data, error } = await supabase
+    .from('coin_locks')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    console.error('coin_locks 조회 실패:', error.message)
+    throw new Error(`코인 잠금 목록을 불러올 수 없습니다: ${error.message}`)
+  }
+
+  return (data ?? []) as CoinLockRow[]
+}
+
+/**
+ * 코인 잠금 상태를 토글합니다 (upsert).
+ *
+ * @param market - 마켓 코드 (예: "KRW-BTC")
+ * @param isLocked - 잠금 여부
+ * @returns 업데이트된 잠금 Row
+ */
+export async function upsertCoinLock(
+  market: string,
+  isLocked: boolean
+): Promise<CoinLockRow> {
+  const supabase = getSupabaseClient()
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('coin_locks')
+    .upsert(
+      {
+        market,
+        is_locked: isLocked,
+        locked_at: isLocked ? now : null,
+        updated_at: now,
+      },
+      { onConflict: 'market' }
+    )
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('coin_locks upsert 실패:', error.message)
+    throw new Error(`코인 잠금 상태를 변경할 수 없습니다: ${error.message}`)
+  }
+
+  return data as CoinLockRow
 }

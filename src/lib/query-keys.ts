@@ -85,6 +85,14 @@ export const queryKeys = {
   /** 매수 후보 키 (Supabase buy_candidates 테이블) */
   buyCandidates: () =>
     ['buy-candidates'] as const,
+
+  // ─────────────────────────────────────────
+  // 코인 잠금 (coin_locks)
+  // ─────────────────────────────────────────
+
+  /** 코인 잠금 목록 키 */
+  coinLocks: () =>
+    ['coin-locks'] as const,
 }
 
 /**
@@ -147,6 +155,11 @@ export const QUERY_CONFIG = {
   },
   /** 매수 후보: 30초 신선, 60초 갱신 */
   buyCandidates: {
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  },
+  /** 코인 잠금: 30초 신선, 60초 갱신 */
+  coinLocks: {
     staleTime: 30_000,
     refetchInterval: 60_000,
   },

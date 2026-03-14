@@ -8,6 +8,7 @@
  * 모바일 반응형: 좁은 화면에서 일부 컬럼 숨김
  */
 
+import { Lock, Unlock } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -16,9 +17,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 import { PriceDisplay } from '@/components/common/price-display'
 import { PnlBadge } from '@/components/common/pnl-badge'
 import { Badge } from '@/components/ui/badge'
+import { useCoinLocks, useToggleCoinLock } from '@/hooks/use-coin-locks'
 import type { Holding } from '@/types/trading'
 import type { UpbitTicker } from '@/types/upbit'
 import type { RsiData } from '@/hooks/use-rsi'
@@ -78,6 +81,9 @@ function RsiBadge({ rsi }: { rsi: number | null }) {
 }
 
 export function HoldingList({ holdings, tickers, totalAsset, rsiData }: HoldingListProps) {
+  const { data: coinLocks = [] } = useCoinLocks()
+  const toggleLock = useToggleCoinLock()
+
   /* 보유 코인이 없는 경우 */
   if (holdings.length === 0) {
     return (
@@ -109,6 +115,7 @@ export function HoldingList({ holdings, tickers, totalAsset, rsiData }: HoldingL
             <TableHead className="text-right">손익률</TableHead>
             <TableHead className="text-right">비중</TableHead>
             <TableHead className="text-right">RSI</TableHead>
+            <TableHead className="text-center">잠금</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -116,6 +123,8 @@ export function HoldingList({ holdings, tickers, totalAsset, rsiData }: HoldingL
             const change = getChange(holding.market, tickers)
             const weight = totalAsset > 0 ? (holding.totalValue / totalAsset) * 100 : 0
             const rsi = rsiData.find((r) => r.market === holding.market)?.rsi ?? null
+            const lockEntry = coinLocks.find((l) => l.market === holding.market)
+            const isLocked = lockEntry?.is_locked ?? false
 
             return (
               <TableRow key={holding.currency}>
@@ -180,6 +189,29 @@ export function HoldingList({ holdings, tickers, totalAsset, rsiData }: HoldingL
                 {/* RSI */}
                 <TableCell className="text-right">
                   <RsiBadge rsi={rsi} />
+                </TableCell>
+
+                {/* 잠금 */}
+                <TableCell className="text-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={toggleLock.isPending}
+                    onClick={() =>
+                      toggleLock.mutate({
+                        market: holding.market,
+                        is_locked: !isLocked,
+                      })
+                    }
+                    title={isLocked ? '잠금 해제' : '잠금'}
+                  >
+                    {isLocked ? (
+                      <Lock className="h-4 w-4 text-amber-500" />
+                    ) : (
+                      <Unlock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
                 </TableCell>
               </TableRow>
             )
